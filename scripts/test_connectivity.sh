@@ -4,7 +4,7 @@
 
 set -e
 
-WORKSPACE="/root/.openclaw/workspace-taizi/futures-trading-system"
+WORKSPACE="/root/projects/futures-trading-system"
 
 # ── 加载环境配置 ──
 ENV_FILE="$WORKSPACE/.env"
