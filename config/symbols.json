@@ -6,7 +6,8 @@
       "enabled": true,
       "priority": 1,
       "min_volume_24h": 0,
-      "max_leverage": 5
+      "max_leverage": 5,
+      "note": "流动性最好，适合趋势跟踪"
     },
     {
       "symbol": "ETHUSDT",
@@ -14,8 +15,27 @@
       "enabled": true,
       "priority": 2,
       "min_volume_24h": 0,
-      "max_leverage": 5
+      "max_leverage": 5,
+      "note": "波动率适中，适合多策略"
+    },
+    {
+      "symbol": "SOLUSDT",
+      "name": "Solana",
+      "enabled": false,
+      "priority": 3,
+      "min_volume_24h": 0,
+      "max_leverage": 3,
+      "note": "波动率高，适合突破策略"
+    },
+    {
+      "symbol": "BNBUSDT",
+      "name": "BNB",
+      "enabled": false,
+      "priority": 4,
+      "min_volume_24h": 0,
+      "max_leverage": 5,
+      "note": "平台币，趋势稳定"
     }
   ],
-  "note": "V1 仅监控 BTC/ETH，后续可扩展。新增币种需同时加入此文件并重启策略引擎。"
+  "note": "新增币种后设置 enabled=true 即可纳入监控"
 }

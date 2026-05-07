@@ -1,14 +1,27 @@
 # 敏感信息
 .env
 
-# Python cache
+# Python
 __pycache__/
 *.pyc
 *.pyo
+*.egg-info/
+dist/
+build/
 
-# 运行时数据
-data/
+# 运行时数据（不上传到 Git）
+data/klines/
+data/signals/
+data/live/
+data/reports/
 logs/
 state/
-data/signals/
-data/reports/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
