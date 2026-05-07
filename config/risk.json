@@ -1,0 +1,37 @@
+{
+  "max_leverage": 5,
+  "position_size_pct": 10,
+  "stop_loss_pct": 2,
+  "take_profit_pct": 4,
+  "max_positions": 3,
+  "daily_loss_limit_pct": 5,
+  "max_drawdown_pct": 15,
+  "trailing_stop": true,
+  "trailing_distance_pct": 1,
+  "risk_rules": {
+    "single_stop_loss": {
+      "enabled": true,
+      "description": "单笔亏损不超过本金 2%"
+    },
+    "single_take_profit": {
+      "enabled": true,
+      "description": "单笔止盈 +4%，盈亏比 ≥ 1:2"
+    },
+    "max_positions": {
+      "enabled": true,
+      "description": "同时最多持仓 3 个合约"
+    },
+    "daily_loss_limit": {
+      "enabled": true,
+      "description": "当日亏损达 5% 停止交易"
+    },
+    "max_drawdown": {
+      "enabled": true,
+      "description": "总资金回撤 15% 清仓暂停"
+    },
+    "emergency_close": {
+      "enabled": true,
+      "description": "触发止损自动平仓"
+    }
+  }
+}

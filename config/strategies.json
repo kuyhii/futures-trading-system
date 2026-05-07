@@ -1,0 +1,53 @@
+{
+  "active": ["trend_follow", "mean_reversion"],
+  "symbols": ["BTCUSDT", "ETHUSDT"],
+  "timeframe": "15m",
+  "indicators": {
+    "ma_fast": 9,
+    "ma_slow": 21,
+    "rsi_period": 14,
+    "rsi_overbought": 70,
+    "rsi_oversold": 30,
+    "bollinger_period": 20,
+    "bollinger_std": 2.0,
+    "macd_fast": 12,
+    "macd_slow": 26,
+    "macd_signal": 9
+  },
+  "strategies": {
+    "trend_follow": {
+      "enabled": true,
+      "description": "MA 金叉/死叉 + 成交量确认",
+      "entry": "fast_ma > slow_ma AND volume > volume_ma_20 * 1.2",
+      "exit": "fast_ma < slow_ma",
+      "timeframe": "15m"
+    },
+    "mean_reversion": {
+      "enabled": true,
+      "description": "RSI 超买超卖 + 布林带",
+      "entry_long": "rsi < 30 AND price < bollinger_lower",
+      "entry_short": "rsi > 70 AND price > bollinger_upper",
+      "timeframe": "15m"
+    },
+    "funding_rate": {
+      "enabled": false,
+      "description": "极端资金费率反向开仓",
+      "threshold": 0.001,
+      "timeframe": "1h"
+    },
+    "breakout": {
+      "enabled": false,
+      "description": "突破 N 日高低点 + 持仓量配合",
+      "lookback_periods": 20,
+      "oi_confirmation": true,
+      "timeframe": "1h"
+    },
+    "lsr_reversal": {
+      "enabled": false,
+      "description": "大户多空比极端值反转",
+      "threshold_long": 0.70,
+      "threshold_short": 0.30,
+      "timeframe": "1h"
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "watchlist": [
+    {
+      "symbol": "BTCUSDT",
+      "name": "Bitcoin",
+      "enabled": true,
+      "priority": 1,
+      "min_volume_24h": 0,
+      "max_leverage": 5
+    },
+    {
+      "symbol": "ETHUSDT",
+      "name": "Ethereum",
+      "enabled": true,
+      "priority": 2,
+      "min_volume_24h": 0,
+      "max_leverage": 5
+    }
+  ],
+  "note": "V1 仅监控 BTC/ETH，后续可扩展。新增币种需同时加入此文件并重启策略引擎。"
+}
