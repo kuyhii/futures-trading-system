@@ -559,11 +559,10 @@ class StrategyEngine:
                 })
         return candles
 
-    def analyze(self, candles: List[dict], symbol: str = "",
-                candles_confirm: List[dict] = None) -> List[TradeSignal]:
+    def analyze(self, candles: List[dict], symbol: str = "") -> List[TradeSignal]:
         """
         运行所有启用的策略，返回信号列表
-        V2: symbol 传入 + 15m 确认 K 线传入（供 CZSC 多级别分析）
+        所有策略统一使用 2m K 线数据
         """
         signals = []
         for name, cfg in self.strategies_cfg.items():
@@ -572,11 +571,7 @@ class StrategyEngine:
             try:
                 sig = getattr(self, f"_strategy_{name}", None)
                 if sig:
-                    # CZSC 策略额外传入 15m 确认 K 线
-                    if name == "czsc" and candles_confirm:
-                        result = sig(candles, cfg, symbol=symbol, candles_confirm=candles_confirm)
-                    else:
-                        result = sig(candles, cfg)
+                    result = sig(candles, cfg)
                     if result and result.action != SignalAction.HOLD:
                         signals.append(result)
             except Exception as e:
@@ -776,13 +771,12 @@ class StrategyEngine:
         return None
 
     # ── 策略 6: CZSC 缠论策略 ──
-    def _strategy_czsc(self, candles: List[dict], cfg: dict,
-                        symbol: str = "BTCUSDT", candles_confirm: List[dict] = None) -> Optional[TradeSignal]:
+    def _strategy_czsc(self, candles: List[dict], cfg: dict) -> Optional[TradeSignal]:
         if not CZSC_STRATEGY_AVAILABLE or _czsc_gen_signal is None:
             return None
         try:
             min_conf = cfg.get("min_confidence", 0.65)
-            sig = _czsc_gen_signal(candles, symbol=symbol, min_confidence=min_conf, candles_confirm=candles_confirm)
+            sig = _czsc_gen_signal(candles, min_confidence=min_conf)
             if not sig:
                 return None
             action = SignalAction.BUY if sig["action"] == "BUY" else SignalAction.SELL
@@ -791,7 +785,7 @@ class StrategyEngine:
                 {"reason": sig["reason"], "czsc_details": sig.get("czsc_details", {})}
             )
         except Exception as e:
-            logger.error(f"CZSC 策略异常({symbol}): {e}")
+            logger.error(f"CZSC 策略异常: {e}")
             return None
 
 
@@ -1360,8 +1354,8 @@ class TradingEngine:
     def process_signals(self) -> List[TradeSignal]:
         """
         V2 信号处理:
-          1. 每个币种获取 2m + 15m K 线
-          2. 所有策略运行（CZSC 接收双级别数据）
+          1. 每个币种获取 2m K 线（本地数据）
+          2. 所有策略运行
           3. 信号聚合（加权投票 + 冲突检测）
           4. 过滤低置信度
         """
@@ -1371,16 +1365,15 @@ class TradingEngine:
             symbol = sym_cfg["symbol"]
             logger.info(f"📡 分析 {symbol}...")
 
-            # 获取 2m 和 15m K 线
+            # 获取 2m K 线（本地数据管理器）
             candles_2m = self.fetch_klines(symbol, "2m")
-            candles_15m = self.fetch_klines(symbol, "15m")
 
             if not candles_2m:
                 logger.warning(f"  {symbol}: 2m K 线数据为空，跳过")
                 continue
 
             # 运行所有策略
-            signals = self.strategy.analyze(candles_2m, symbol=symbol, candles_confirm=candles_15m)
+            signals = self.strategy.analyze(candles_2m, symbol=symbol)
 
             # 记录各策略信号状态
             strategy_names = [n for n, c in self.config.get("strategies", {}).items() if c.get("enabled")]
@@ -1402,7 +1395,7 @@ class TradingEngine:
                 else:
                     logger.info(f"  {symbol}: 信号聚合后无有效结果")
 
-            # 单独记录 CZSC 多级别分析结果
+            # 记录 CZSC 分析结果
             czsc_signals = [s for s in signals if s.strategy == "czsc"]
             if czsc_signals:
                 czsc = czsc_signals[0]

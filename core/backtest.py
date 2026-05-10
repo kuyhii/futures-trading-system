@@ -296,6 +296,8 @@ class BacktestEngine:
             leverage=self.leverage,
             mark_price=price,
         )
+        # 记录开仓bar，用于计算bars_held
+        self.position._entry_bar = bar_idx
 
         # 扣除开仓手续费
         fee = nominal * self.commission_rate

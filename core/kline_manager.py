@@ -344,8 +344,10 @@ class KlineManager:
             # 新增品种立即加载历史数据
             for sym in added:
                 try:
-                    self._fetch_and_save_1m(sym)
-                    self._synthesize_2m(sym)
+                    self._last_update_time[sym] = 0  # 重置时间戳，全量加载
+                    self.initial_fetch_1m_klines(sym, limit=360)
+                    self._synthesize_2m_for_symbol(sym)
+                    logger.info(f"  {sym}: 加载 1m+合成2m 完成")
                 except Exception as e:
                     logger.warning(f"  {sym} 初始加载失败: {e}")
         if removed:
