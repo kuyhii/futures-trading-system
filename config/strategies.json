@@ -1,5 +1,5 @@
 {
-  "active": ["trend_follow", "mean_reversion", "breakout"],
+  "active": ["trend_follow", "mean_reversion", "breakout", "czsc"],
   "symbols": ["BTCUSDT", "ETHUSDT"],
   "timeframe": "15m",
   "indicators": {
@@ -15,33 +15,50 @@
     "macd_signal": 9,
     "atr_period": 14
   },
+  "signal_aggregation": {
+    "method": "weighted_vote",
+    "min_agreement_count": 1,
+    "conflict_resolution": "highest_confidence",
+    "same_symbol_max_signals": 1
+  },
   "strategies": {
     "trend_follow": {
       "enabled": true,
+      "weight": 1.0,
+      "priority": 1,
       "description": "MA 金叉/死叉 + MACD 确认 + 成交量",
       "entry": "fast_ma > slow_ma AND macd_histogram > 0 AND volume > volume_ma_20 * 1.2",
       "exit": "fast_ma < slow_ma",
       "timeframe": "15m",
-      "leverage": 3
+      "leverage": 3,
+      "min_confidence": 0.6
     },
     "mean_reversion": {
       "enabled": true,
+      "weight": 0.8,
+      "priority": 2,
       "description": "RSI 超买超卖 + 布林带",
       "entry_long": "rsi < 30 AND price < bollinger_lower",
       "entry_short": "rsi > 70 AND price > bollinger_upper",
       "timeframe": "15m",
-      "leverage": 3
+      "leverage": 3,
+      "min_confidence": 0.7
     },
     "breakout": {
       "enabled": true,
+      "weight": 0.9,
+      "priority": 3,
       "description": "突破 N 日高低点 + 成交量确认",
       "lookback_periods": 20,
       "oi_confirmation": true,
       "timeframe": "15m",
-      "leverage": 3
+      "leverage": 3,
+      "min_confidence": 0.5
     },
     "funding_rate": {
       "enabled": false,
+      "weight": 0.5,
+      "priority": 5,
       "description": "极端资金费率反向开仓",
       "threshold": 0.001,
       "timeframe": "1h",
@@ -49,11 +66,24 @@
     },
     "lsr_reversal": {
       "enabled": false,
+      "weight": 0.5,
+      "priority": 5,
       "description": "大户多空比极端值反转",
       "threshold_long": 0.70,
       "threshold_short": 0.30,
       "timeframe": "1h",
       "leverage": 2
+    },
+    "czsc": {
+      "enabled": true,
+      "weight": 1.0,
+      "priority": 1,
+      "description": "CZSC 缠论策略 — 分型/笔/决策信号（15min+1h多级别）",
+      "timeframe": "15m",
+      "confirmation_timeframe": "1h",
+      "leverage": 3,
+      "min_confidence": 0.65,
+      "max_signals_per_hour": 2
     }
   }
 }

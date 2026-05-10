@@ -7,7 +7,7 @@
       "priority": 1,
       "min_volume_24h": 0,
       "max_leverage": 5,
-      "note": "流动性最好，适合趋势跟踪"
+      "note": "流动性最好，适合趋势跟踪+缠论"
     },
     {
       "symbol": "ETHUSDT",
@@ -25,7 +25,7 @@
       "priority": 3,
       "min_volume_24h": 0,
       "max_leverage": 3,
-      "note": "波动率高，适合突破策略"
+      "note": "波动率高，适合突破策略，需手动启用"
     },
     {
       "symbol": "BNBUSDT",
@@ -34,8 +34,8 @@
       "priority": 4,
       "min_volume_24h": 0,
       "max_leverage": 5,
-      "note": "平台币，趋势稳定"
+      "note": "平台币，趋势稳定，需手动启用"
     }
   ],
-  "note": "新增币种后设置 enabled=true 即可纳入监控"
+  "note": "新增币种后设置 enabled=true 即可纳入监控。CZSC 缠论策略现在支持所有 enabled 币种"
 }

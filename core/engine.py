@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-core/engine.py - 量化交易核心引擎
+core/engine.py - 量化交易核心引擎 V2（多策略优化版）
 职责: 完整交易生命周期管理
   - 实时行情（HTTP轮询 + WebSocket备用）
-  - 策略信号 → 风控审核 → 自动下单 全闭环
+  - 多策略信号 → 风控审核 → 自动下单 全闭环
+  - 信号聚合：加权投票 + 冲突检测 + 多级别确认
   - 仓位计算（基于账户余额 + 风控参数）
   - 止损/止盈/追踪止损自动执行
   - 多时间框架分析
@@ -34,9 +35,6 @@ from enum import Enum
 # ── 路径 ──
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
-
-# ── 通知模块 ──
-from core.notify import notifier
 CONFIG_DIR = os.path.join(ROOT, "config")
 DATA_DIR = os.path.join(ROOT, "data")
 LOGS_DIR = os.path.join(ROOT, "logs")
@@ -61,6 +59,17 @@ def load_env():
                         os.environ[key] = val
 
 load_env()
+
+# ── 通知模块 ──
+from core.notify import notifier
+
+# ── CZSC 缠论策略 ──
+try:
+    from core.strategies.czsc_strategy import generate_czsc_signal as _czsc_gen_signal
+    CZSC_STRATEGY_AVAILABLE = True
+except ImportError:
+    CZSC_STRATEGY_AVAILABLE = False
+    _czsc_gen_signal = None
 
 # ═══════════════════════════════════════════
 # 配置
@@ -114,10 +123,9 @@ class BinanceClient:
         self._req_count = 0
         self._last_error_time = 0
         self._consecutive_errors = 0
-        self.circuit_breaker = False  # 熔断标志
+        self.circuit_breaker = False
 
     def _sign(self, params: dict) -> dict:
-        """签名请求参数"""
         if not self.api_secret:
             return params
         params["timestamp"] = int(time.time() * 1000)
@@ -130,9 +138,7 @@ class BinanceClient:
 
     def _request(self, method: str, path: str, params: dict = None,
                  signed: bool = False, retries: int = 3) -> dict:
-        """HTTP 请求（带重试 + 熔断）"""
         if self.circuit_breaker:
-            # 熔断: 等待 60s 后重试
             if time.time() - self._last_error_time < 60:
                 raise RuntimeError("🚨 API 熔断中，等待冷却")
             self.circuit_breaker = False
@@ -141,7 +147,6 @@ class BinanceClient:
 
         url = f"{self.base_url}{path}"
         params = params or {}
-
         if signed:
             params = self._sign(params)
 
@@ -159,7 +164,6 @@ class BinanceClient:
                 self._req_count += 1
 
                 if resp.status_code == 429:
-                    # 频率限制，退避
                     wait = min(2 ** attempt, 10)
                     logger.warning(f"⚠️ 429 频率限制，等待 {wait}s 后重试")
                     time.sleep(wait)
@@ -171,7 +175,6 @@ class BinanceClient:
                     if self._consecutive_errors >= 5:
                         self.circuit_breaker = True
                         logger.error("🚨 连续 5 次错误，触发熔断！")
-
                     body = resp.text
                     logger.error(f"API 错误 [{resp.status_code}]: {body}")
                     if attempt < retries - 1:
@@ -198,53 +201,41 @@ class BinanceClient:
         return {"error": "max retries exceeded"}
 
     # ── 公开接口 ──
-
     def klines(self, symbol: str, interval: str = "15m", limit: int = 100) -> List:
-        """K 线数据"""
         return self._request("GET", "/fapi/v1/klines", {
             "symbol": symbol, "interval": interval, "limit": limit
         })
 
     def ticker_price(self, symbol: str = None) -> dict:
-        """最新价格"""
         params = {"symbol": symbol} if symbol else {}
         return self._request("GET", "/fapi/v1/ticker/price", params)
 
     def mark_price(self, symbol: str = None) -> dict:
-        """标记价格"""
         params = {"symbol": symbol} if symbol else {}
         return self._request("GET", "/fapi/v1/premiumIndex", params)
 
     def funding_rate(self, symbol: str, limit: int = 10) -> List:
-        """资金费率历史"""
         return self._request("GET", "/fapi/v1/fundingRate", {
             "symbol": symbol, "limit": limit
         })
 
     def open_interest(self, symbol: str) -> dict:
-        """当前持仓量"""
         return self._request("GET", "/fapi/v1/openInterest", {"symbol": symbol})
 
     def depth(self, symbol: str, limit: int = 20) -> dict:
-        """订单簿深度"""
         return self._request("GET", "/fapi/v1/depth", {"symbol": symbol, "limit": limit})
 
     def exchange_info(self) -> dict:
-        """交易规则（精度、最小下单量等）"""
         return self._request("GET", "/fapi/v1/exchangeInfo")
 
-    # ── 签名接口（需要 API Key） ──
-
+    # ── 签名接口 ──
     def account_balance(self) -> List:
-        """合约账户余额"""
         return self._request("GET", "/fapi/v2/balance", {}, signed=True)
 
     def account_info(self) -> dict:
-        """账户信息"""
         return self._request("GET", "/fapi/v2/account", {}, signed=True)
 
     def positions(self, symbol: str = None) -> List:
-        """持仓信息"""
         params = {}
         if symbol:
             params["symbol"] = symbol
@@ -254,7 +245,6 @@ class BinanceClient:
         return []
 
     def open_orders(self, symbol: str = None) -> List:
-        """当前挂单"""
         params = {}
         if symbol:
             params["symbol"] = symbol
@@ -265,86 +255,59 @@ class BinanceClient:
                   stop_price: float = None, reduce_only: bool = False,
                   close_position: bool = False, time_in_force: str = "GTC",
                   callback_rate: float = None) -> dict:
-        """下单"""
         params = {
-            "symbol": symbol,
-            "side": side,
-            "type": order_type,
+            "symbol": symbol, "side": side, "type": order_type,
         }
-        if quantity:
-            params["quantity"] = quantity
-        if price:
-            params["price"] = price
-        if stop_price:
-            params["stopPrice"] = stop_price
-        if reduce_only:
-            params["reduceOnly"] = "true"
-        if close_position:
-            params["closePosition"] = "true"
+        if quantity: params["quantity"] = quantity
+        if price: params["price"] = price
+        if stop_price: params["stopPrice"] = stop_price
+        if reduce_only: params["reduceOnly"] = "true"
+        if close_position: params["closePosition"] = "true"
         if time_in_force and order_type in ("LIMIT", "STOP", "TAKE_PROFIT"):
             params["timeInForce"] = time_in_force
-        if callback_rate:
-            params["callbackRate"] = callback_rate
+        if callback_rate: params["callbackRate"] = callback_rate
 
         logger.info(f"📤 下单: {params}")
         return self._request("POST", "/fapi/v1/order", params, signed=True)
 
     def cancel_order(self, symbol: str, order_id: int = None, orig_client_order_id: str = None) -> dict:
-        """撤单"""
         params = {"symbol": symbol}
-        if order_id:
-            params["orderId"] = order_id
-        if orig_client_order_id:
-            params["origClientOrderId"] = orig_client_order_id
+        if order_id: params["orderId"] = order_id
+        if orig_client_order_id: params["origClientOrderId"] = orig_client_order_id
         return self._request("DELETE", "/fapi/v1/order", params, signed=True)
 
     def cancel_all_orders(self, symbol: str) -> dict:
-        """取消所有挂单"""
         return self._request("DELETE", "/fapi/v1/allOpenOrders", {"symbol": symbol}, signed=True)
 
     def change_leverage(self, symbol: str, leverage: int) -> dict:
-        """修改杠杆"""
         return self._request("POST", "/fapi/v1/leverage", {"symbol": symbol, "leverage": leverage}, signed=True)
 
     def change_margin_type(self, symbol: str, margin_type: str = "ISOLATED") -> dict:
-        """修改保证金类型"""
         return self._request("POST", "/fapi/v1/marginType",
                              {"symbol": symbol, "marginType": margin_type}, signed=True)
 
     def modify_isolated_margin(self, symbol: str, amount: float, type: int = 1) -> dict:
-        """调整逐仓保证金"""
         return self._request("POST", "/fapi/v1/positionMargin",
                              {"symbol": symbol, "amount": amount, "type": type}, signed=True)
 
     def income_history(self, symbol: str = None, income_type: str = None,
                        limit: int = 50, start_time: int = None) -> List:
-        """收益历史"""
         params: dict = {"limit": limit}
-        if symbol:
-            params["symbol"] = symbol
-        if income_type:
-            params["incomeType"] = income_type
-        if start_time:
-            params["startTime"] = start_time
+        if symbol: params["symbol"] = symbol
+        if income_type: params["incomeType"] = income_type
+        if start_time: params["startTime"] = start_time
         return self._request("GET", "/fapi/v1/income", params, signed=True)
 
     def get_order(self, symbol: str, order_id: int = None, orig_client_order_id: str = None) -> dict:
-        """查询订单状态"""
         params = {"symbol": symbol}
-        if order_id:
-            params["orderId"] = order_id
-        if orig_client_order_id:
-            params["origClientOrderId"] = orig_client_order_id
+        if order_id: params["orderId"] = order_id
+        if orig_client_order_id: params["origClientOrderId"] = orig_client_order_id
         return self._request("GET", "/fapi/v1/order", params, signed=True)
 
     def my_trades(self, symbol: str, limit: int = 20) -> List:
-        """个人成交记录"""
         return self._request("GET", "/fapi/v1/userTrades", {"symbol": symbol, "limit": limit}, signed=True)
 
-    # ── 工具方法 ──
-
     def get_symbol_info(self, symbol: str) -> Optional[dict]:
-        """获取交易对精度信息"""
         info = self.exchange_info()
         if "symbols" not in info:
             return None
@@ -354,7 +317,6 @@ class BinanceClient:
         return None
 
     def adjust_quantity(self, symbol: str, quantity: float) -> float:
-        """根据交易对精度调整下单数量"""
         info = self.get_symbol_info(symbol)
         if not info:
             return quantity
@@ -362,13 +324,11 @@ class BinanceClient:
             if f["filterType"] == "LOT_SIZE":
                 step = float(f["stepSize"])
                 min_qty = float(f["minQty"])
-                # 对齐到 stepSize
                 quantity = max(min_qty, round(quantity - (quantity % step), 10))
                 break
         return quantity
 
     def adjust_price(self, symbol: str, price: float) -> float:
-        """根据交易对精度调整价格"""
         info = self.get_symbol_info(symbol)
         if not info:
             return price
@@ -430,8 +390,7 @@ class Position:
     entry_time: str = ""
     stop_loss_price: float = 0
     take_profit_price: float = 0
-    highest_pnl: float = -999  # 追踪止损用（初始极小值，开仓后首次更新会设为实际盈亏）
-    order_id_open: int = 0
+    highest_pnl: float = -999
 
     def pnl_pct(self) -> float:
         if self.entry_price == 0:
@@ -453,12 +412,10 @@ class AccountState:
 
 
 # ═══════════════════════════════════════════
-# 技术指标（增强版）
+# 技术指标
 # ═══════════════════════════════════════════
 
 class Indicators:
-    """技术指标计算"""
-
     @staticmethod
     def sma(closes: List[float], period: int) -> Optional[float]:
         if len(closes) < period:
@@ -477,7 +434,6 @@ class Indicators:
 
     @staticmethod
     def ema_series(closes: List[float], period: int) -> List[float]:
-        """返回完整 EMA 序列"""
         if len(closes) < period:
             return []
         mult = 2 / (period + 1)
@@ -531,7 +487,6 @@ class Indicators:
 
     @staticmethod
     def atr(candles: List[dict], period: int = 14) -> Optional[float]:
-        """平均真实波动范围"""
         if len(candles) < period + 1:
             return None
         true_ranges = []
@@ -565,7 +520,6 @@ class Indicators:
 
     @staticmethod
     def vwap(candles: List[dict]) -> Optional[float]:
-        """成交量加权平均价"""
         if not candles:
             return None
         total_vp = sum(c["close"] * c["volume"] for c in candles)
@@ -576,37 +530,38 @@ class Indicators:
 
 
 # ═══════════════════════════════════════════
-# 策略（增强版 — 5 个策略全部实现）
+# 多策略信号引擎（V2 优化版）
 # ═══════════════════════════════════════════
 
 class StrategyEngine:
-    """多策略信号引擎"""
+    """多策略信号引擎 V2 — 支持加权投票 + 冲突检测"""
 
     def __init__(self, config: dict):
         self.config = config
         self.strategies_cfg = config.get("strategies", {})
         self.indicators_cfg = config.get("indicators", {})
+        self.agg_cfg = config.get("signal_aggregation", {})
+        self._strategy_errors: Dict[str, int] = {}  # 记录各策略连续错误次数
 
     def parse_klines(self, raw: list) -> List[dict]:
-        """解析 binance K 线数组"""
         candles = []
         if not isinstance(raw, list):
             return candles
         for k in raw:
             if isinstance(k, list) and len(k) >= 6:
                 candles.append({
-                    "open_time": k[0],
-                    "open": float(k[1]),
-                    "high": float(k[2]),
-                    "low": float(k[3]),
-                    "close": float(k[4]),
-                    "volume": float(k[5]),
+                    "open_time": k[0], "open": float(k[1]), "high": float(k[2]),
+                    "low": float(k[3]), "close": float(k[4]), "volume": float(k[5]),
                     "close_time": k[6],
                 })
         return candles
 
-    def analyze(self, candles: List[dict]) -> List[TradeSignal]:
-        """运行所有启用的策略，返回信号列表"""
+    def analyze(self, candles: List[dict], symbol: str = "",
+                candles_1h: List[dict] = None) -> List[TradeSignal]:
+        """
+        运行所有启用的策略，返回信号列表
+        V2 新增: symbol 传入 + 1h K 线传入（供 CZSC 多级别分析）
+        """
         signals = []
         for name, cfg in self.strategies_cfg.items():
             if not cfg.get("enabled", False):
@@ -614,12 +569,102 @@ class StrategyEngine:
             try:
                 sig = getattr(self, f"_strategy_{name}", None)
                 if sig:
-                    result = sig(candles, cfg)
+                    # CZSC 策略额外传入 1h K 线
+                    if name == "czsc" and candles_1h:
+                        result = sig(candles, cfg, symbol=symbol, candles_1h=candles_1h)
+                    else:
+                        result = sig(candles, cfg)
                     if result and result.action != SignalAction.HOLD:
                         signals.append(result)
             except Exception as e:
-                logger.error(f"策略 {name} 异常: {e}")
+                self._strategy_errors[name] = self._strategy_errors.get(name, 0) + 1
+                err_count = self._strategy_errors[name]
+                logger.error(f"❌ 策略 {name} 异常 (连续 {err_count} 次): {e}")
+                if err_count >= 3:
+                    logger.warning(f"🔇 策略 {name} 连续错误过多，临时禁用")
+                    cfg["enabled"] = False
         return signals
+
+    def aggregate_signals(self, signals: List[TradeSignal], symbol: str) -> Optional[TradeSignal]:
+        """
+        V2 信号聚合：加权投票 + 冲突检测
+
+        逻辑:
+          1. 收集同一币种所有信号
+          2. 检测冲突（同时有 BUY 和 SELL）
+          3. 按方向分组，计算加权置信度
+          4. 选择获胜方向（最高加权分）
+          5. 如果多策略一致 → 提升最终置信度
+        """
+        if not signals:
+            return None
+
+        # 获取策略权重配置
+        strategy_weights = {}
+        for name, cfg in self.strategies_cfg.items():
+            strategy_weights[name] = cfg.get("weight", 1.0)
+
+        # 按方向分组
+        buy_signals = [s for s in signals if s.action == SignalAction.BUY]
+        sell_signals = [s for s in signals if s.action == SignalAction.SELL]
+
+        # 冲突检测
+        if buy_signals and sell_signals:
+            logger.warning(f"⚡ 信号冲突({symbol}): {len(buy_signals)}个做多 vs {len(sell_signals)}个做空")
+            # 分别计算加权分
+            buy_score = sum(s.confidence * strategy_weights.get(s.strategy, 1.0) for s in buy_signals)
+            sell_score = sum(s.confidence * strategy_weights.get(s.strategy, 1.0) for s in sell_signals)
+            logger.info(f"📊 加权分: 做多={buy_score:.2f} vs 做空={sell_score:.2f}")
+            if buy_score >= sell_score:
+                winner_signals = buy_signals
+                loser_signals = sell_signals
+            else:
+                winner_signals = sell_signals
+                loser_signals = buy_signals
+            logger.info(f"🏆 冲突解决: {'做多' if winner_signals[0].action == SignalAction.BUY else '做空'} 获胜")
+        else:
+            winner_signals = buy_signals or sell_signals
+            loser_signals = []
+
+        # 计算加权置信度
+        total_weight = sum(strategy_weights.get(s.strategy, 1.0) for s in winner_signals)
+        weighted_conf = sum(
+            s.confidence * strategy_weights.get(s.strategy, 1.0) for s in winner_signals
+        ) / total_weight
+
+        # 多策略一致 → 置信度加成
+        agreement_bonus = 0.0
+        if len(winner_signals) >= 2:
+            agreement_bonus = min(0.15, len(winner_signals) * 0.05)
+            logger.info(f"🤝 {symbol} {len(winner_signals)} 个策略一致: {[s.strategy for s in winner_signals]} "
+                       f"(加成 +{agreement_bonus:.0%})")
+
+        final_confidence = min(0.95, weighted_conf + agreement_bonus)
+
+        # 构建聚合信号
+        best_signal = winner_signals[0]
+        strategies_involved = [s.strategy for s in winner_signals]
+        strategies_rejected = [s.strategy for s in loser_signals]
+
+        details = {
+            **best_signal.details,
+            "aggregated": True,
+            "strategies_agree": strategies_involved,
+            "strategies_disagree": strategies_rejected,
+            "raw_confidence": round(weighted_conf, 2),
+            "agreement_bonus": round(agreement_bonus, 2),
+            "strategy_count": len(winner_signals),
+        }
+
+        return TradeSignal(
+            symbol=symbol,
+            action=best_signal.action,
+            strategy=",".join(strategies_involved),
+            confidence=round(final_confidence, 2),
+            price=best_signal.price,
+            timeframe=best_signal.timeframe,
+            details=details,
+        )
 
     def _make_signal(self, action: SignalAction, strategy: str,
                      confidence: float, price: float, details: dict,
@@ -629,139 +674,122 @@ class StrategyEngine:
             price=price, timeframe=timeframe, details=details
         )
 
-    # ── 策略 1: 趋势跟踪（增强：MACD 确认 + 多时间框架） ──
-
+    # ── 策略 1: 趋势跟踪 ──
     def _strategy_trend_follow(self, candles: List[dict], cfg: dict) -> Optional[TradeSignal]:
         if len(candles) < 30:
             return None
-
         closes = [c["close"] for c in candles]
         volumes = [c["volume"] for c in candles]
         price = closes[-1]
-
         fast = self.indicators_cfg["ma_fast"]
         slow = self.indicators_cfg["ma_slow"]
-
         ma_fast = Indicators.sma(closes, fast)
         ma_slow = Indicators.sma(closes, slow)
         ma_fast_prev = Indicators.sma(closes[:-1], fast)
         ma_slow_prev = Indicators.sma(closes[:-1], slow)
         vol_ma = Indicators.volume_ma(volumes, 20)
         current_vol = volumes[-1]
-
         if not all([ma_fast, ma_slow, ma_fast_prev, ma_slow_prev]):
             return None
 
-        details = {"ma_fast": round(ma_fast, 2), "ma_slow": round(ma_slow, 2),
-                   "current_price": price}
-
-        # MACD 确认
+        details = {"ma_fast": round(ma_fast, 2), "ma_slow": round(ma_slow, 2), "current_price": price}
         macd_val, macd_sig, macd_hist = Indicators.macd(closes)
         if macd_val is not None:
             details["macd"] = round(macd_val, 4)
             details["macd_signal"] = round(macd_sig, 4)
             details["macd_histogram"] = round(macd_hist, 4)
-
         vol_confirm = (not vol_ma) or (current_vol > vol_ma * 1.2)
 
-        # 金叉
         if ma_fast_prev <= ma_slow_prev and ma_fast > ma_slow:
-            conf = 0.9 if (vol_confirm and macd_hist and macd_hist > 0) else 0.6
+            conf = 0.85 if (vol_confirm and macd_hist and macd_hist > 0) else 0.6
             return self._make_signal(SignalAction.BUY, "trend_follow", conf, price,
                                      {**details, "cross": "golden", "volume_confirm": vol_confirm})
-
-        # 死叉
         if ma_fast_prev >= ma_slow_prev and ma_fast < ma_slow:
-            conf = 0.9 if (vol_confirm and macd_hist and macd_hist < 0) else 0.6
+            conf = 0.85 if (vol_confirm and macd_hist and macd_hist < 0) else 0.6
             return self._make_signal(SignalAction.SELL, "trend_follow", conf, price,
                                      {**details, "cross": "death", "volume_confirm": vol_confirm})
-
         return None
 
-    # ── 策略 2: 均值回归（增强：ATR 动态区间） ──
-
+    # ── 策略 2: 均值回归 ──
     def _strategy_mean_reversion(self, candles: List[dict], cfg: dict) -> Optional[TradeSignal]:
         if len(candles) < 30:
             return None
-
         closes = [c["close"] for c in candles]
         price = closes[-1]
-
         rsi = Indicators.rsi(closes, self.indicators_cfg["rsi_period"])
         lower, mid, upper = Indicators.bollinger(closes,
                                                   self.indicators_cfg["bollinger_period"],
                                                   self.indicators_cfg["bollinger_std"])
-
         if rsi is None or lower is None:
             return None
-
         details = {"rsi": round(rsi, 2), "bollinger_lower": round(lower, 2),
                    "bollinger_middle": round(mid, 2), "bollinger_upper": round(upper, 2),
                    "current_price": price}
-
         ob = self.indicators_cfg["rsi_overbought"]
         os_ = self.indicators_cfg["rsi_oversold"]
-
         if rsi < os_ and price < lower:
             return self._make_signal(SignalAction.BUY, "mean_reversion", 0.7, price,
-                                     {**details, "reason": "oversold + below_lower"})
+                                     {**details, "reason": "oversold+below_lower"})
         if rsi > ob and price > upper:
             return self._make_signal(SignalAction.SELL, "mean_reversion", 0.7, price,
-                                     {**details, "reason": "overbought + above_upper"})
+                                     {**details, "reason": "overbought+above_upper"})
         return None
 
-    # ── 策略 3: 突破策略（新增实现） ──
-
+    # ── 策略 3: 突破策略 ──
     def _strategy_breakout(self, candles: List[dict], cfg: dict) -> Optional[TradeSignal]:
         lookback = cfg.get("lookback_periods", 20)
         if len(candles) < lookback + 5:
             return None
-
         closes = [c["close"] for c in candles]
         highs = [c["high"] for c in candles]
         lows = [c["low"] for c in candles]
         volumes = [c["volume"] for c in candles]
         price = closes[-1]
-
         highest = Indicators.highest(highs, lookback)
         lowest = Indicators.lowest(lows, lookback)
         vol_ma = Indicators.volume_ma(volumes, 20)
-
         if highest is None or lowest is None:
             return None
-
         details = {"highest": round(highest, 2), "lowest": round(lowest, 2),
                    "current_price": price, "lookback": lookback}
-
         prev_price = closes[-2]
         vol_confirm = (not vol_ma) or (volumes[-1] > vol_ma * 1.3)
-
-        # 突破上轨
         if prev_price < highest and price >= highest:
-            conf = 0.8 if vol_confirm else 0.5
+            conf = 0.75 if vol_confirm else 0.5
             return self._make_signal(SignalAction.BUY, "breakout", conf, price,
                                      {**details, "breakout": "upper", "volume_confirm": vol_confirm})
-
-        # 突破下轨
         if prev_price > lowest and price <= lowest:
-            conf = 0.8 if vol_confirm else 0.5
+            conf = 0.75 if vol_confirm else 0.5
             return self._make_signal(SignalAction.SELL, "breakout", conf, price,
                                      {**details, "breakout": "lower", "volume_confirm": vol_confirm})
-
         return None
 
-    # ── 策略 4: 资金费率套利 ──
-
+    # ── 策略 4: 资金费率（框架保留） ──
     def _strategy_funding_rate(self, candles: List[dict], cfg: dict) -> Optional[TradeSignal]:
-        # 资金费率需要从外部传入，这里通过 candles 最后一个的额外字段
-        # 在实际引擎中会通过 API 单独获取
         return None
 
-    # ── 策略 5: 多空比反转 ──
-
+    # ── 策略 5: 多空比反转（框架保留） ──
     def _strategy_lsr_reversal(self, candles: List[dict], cfg: dict) -> Optional[TradeSignal]:
-        # 多空比需要从外部 API 获取，这里作为框架保留
         return None
+
+    # ── 策略 6: CZSC 缠论策略 ──
+    def _strategy_czsc(self, candles: List[dict], cfg: dict,
+                        symbol: str = "BTCUSDT", candles_1h: List[dict] = None) -> Optional[TradeSignal]:
+        if not CZSC_STRATEGY_AVAILABLE or _czsc_gen_signal is None:
+            return None
+        try:
+            min_conf = cfg.get("min_confidence", 0.65)
+            sig = _czsc_gen_signal(candles, symbol=symbol, min_confidence=min_conf, candles_1h=candles_1h)
+            if not sig:
+                return None
+            action = SignalAction.BUY if sig["action"] == "BUY" else SignalAction.SELL
+            return self._make_signal(
+                action, "czsc", sig["confidence"], candles[-1]["close"],
+                {"reason": sig["reason"], "czsc_details": sig.get("czsc_details", {})}
+            )
+        except Exception as e:
+            logger.error(f"CZSC 策略异常({symbol}): {e}")
+            return None
 
 
 # ═══════════════════════════════════════════
@@ -774,7 +802,7 @@ class RiskEngine:
     def __init__(self, config: dict):
         self.cfg = config
         self.risk_rules = config.get("risk_rules", {})
-        self._daily_start_equity = 0  # 当日初始权益
+        self._daily_start_equity = 0
         self._peak_equity = 0
 
     def set_daily_start(self, equity: float):
@@ -785,89 +813,57 @@ class RiskEngine:
     def can_open_position(self, account: AccountState, symbol: str,
                           side: PositionSide, quantity: float,
                           leverage: int, price: float) -> Tuple[bool, str]:
-        """开仓前风控审核"""
-
-        # 1. 最大持仓数
         if len(account.positions) >= self.cfg["max_positions"]:
             return False, f"持仓数已达上限 ({len(account.positions)}/{self.cfg['max_positions']})"
-
-        # 2. 已有同币种持仓
         for p in account.positions:
             if p.symbol == symbol:
                 return False, f"{symbol} 已有持仓，不可重复开仓"
-
-        # 3. 杠杆检查
         if leverage > self.cfg["max_leverage"]:
             return False, f"杠杆 {leverage}x 超过上限 {self.cfg['max_leverage']}x"
-
-        # 4. 仓位大小检查
-        position_value = price * quantity
-        max_position = account.total_equity * self.cfg["position_size_pct"] / 100
-        if position_value > max_position:
-            return False, f"仓位价值 {position_value:.2f} 超过限制 {max_position:.2f}"
-
-        # 5. 日亏损限制
+        # V2 修复: 比较保证金（而非名义仓位）
+        margin_needed_check = price * quantity / leverage
+        max_margin = account.total_equity * self.cfg["position_size_pct"] / 100
+        if margin_needed_check > max_margin:
+            return False, f"保证金 {margin_needed_check:.2f} 超过风险预算 {max_margin:.2f}（名义仓位={price*quantity:.2f}）"
         if self._daily_start_equity > 0:
             daily_pnl_pct = (account.total_equity - self._daily_start_equity) / self._daily_start_equity * 100
             if daily_pnl_pct < -self.cfg["daily_loss_limit_pct"]:
                 return False, f"当日亏损 {daily_pnl_pct:.2f}% 已达限制 {-self.cfg['daily_loss_limit_pct']}%"
-
-        # 6. 总回撤
         if self._peak_equity > 0:
             drawdown = (self._peak_equity - account.total_equity) / self._peak_equity * 100
             if drawdown > self.cfg["max_drawdown_pct"]:
                 return False, f"总回撤 {drawdown:.2f}% 超过限制 {self.cfg['max_drawdown_pct']}%"
-
-        # 7. 可用余额检查
-        margin_needed = position_value / leverage
-        if margin_needed > account.available_balance * 0.9:
-            return False, f"可用余额不足: 需要 {margin_needed:.2f}, 可用 {account.available_balance:.2f}"
-
+        if margin_needed_check > account.available_balance * 0.9:
+            return False, f"可用余额不足: 需要 {margin_needed_check:.2f}, 可用 {account.available_balance:.2f}"
         return True, "通过"
 
     def check_position_risk(self, position: Position) -> Optional[str]:
-        """检查单个持仓风险，返回触发动作 (None=无异常)"""
         if position.mark_price == 0:
             return None
-
         pnl = position.pnl_pct()
-
-        # 追踪止损更新
         if self.cfg.get("trailing_stop", False):
             if pnl > position.highest_pnl:
                 position.highest_pnl = pnl
-
-        # 止损检查
         if pnl < -self.cfg["stop_loss_pct"]:
             return f"STOP_LOSS: 亏损 {pnl:.2f}% 超过限制 -{self.cfg['stop_loss_pct']}%"
-
-        # 止盈检查
         if pnl > self.cfg["take_profit_pct"]:
             return f"TAKE_PROFIT: 盈利 {pnl:.2f}% 超过目标 +{self.cfg['take_profit_pct']}%"
-
-        # 追踪止损
         if self.cfg.get("trailing_stop") and position.highest_pnl > self.cfg["take_profit_pct"]:
             trail_distance = self.cfg.get("trailing_distance_pct", 1)
             if pnl < (position.highest_pnl - trail_distance):
                 return f"TRAILING_STOP: 从最高点 {position.highest_pnl:.2f}% 回撤 {trail_distance}%"
-
         return None
 
-    def calc_stop_loss(self, entry_price: float, side: PositionSide,
-                       atr: float = None) -> float:
-        """计算止损价（基于百分比或 ATR）"""
+    def calc_stop_loss(self, entry_price: float, side: PositionSide, atr: float = None) -> float:
         stop_pct = self.cfg["stop_loss_pct"] / 100
         if atr:
-            # 使用 ATR 动态止损 (2x ATR)
             stop_pct = min(stop_pct, (atr * 2 / entry_price))
-
         if side == PositionSide.LONG:
             return round(entry_price * (1 - stop_pct), 8)
         else:
             return round(entry_price * (1 + stop_pct), 8)
 
     def calc_take_profit(self, entry_price: float, side: PositionSide) -> float:
-        """计算止盈价"""
         tp_pct = self.cfg["take_profit_pct"] / 100
         if side == PositionSide.LONG:
             return round(entry_price * (1 + tp_pct), 8)
@@ -878,17 +874,20 @@ class RiskEngine:
                            leverage: int, risk_pct: float = None) -> float:
         """
         基于账户余额和风控计算开仓数量
-        公式: position_size = (equity * risk_pct%) / (stop_loss_pct * price) * leverage
-        简化版: position_size = equity * position_size_pct% / leverage / price
+        V2 修复: position_size_pct 控制的是风险敞口（保证金），不是名义仓位
+        公式: quantity = (equity * risk_pct% / leverage) / price
+        这样 position_value = quantity * price = equity * risk_pct% / leverage
+        保证金 = position_value * 1/leverage = equity * risk_pct% / leverage²
+        简化: quantity = equity * risk_pct% / price / leverage 的倒数
+        实际: 保证金 = equity * risk_pct%, 名义仓位 = 保证金 * leverage
         """
         if risk_pct is None:
             risk_pct = self.cfg["position_size_pct"]
-
-        # 最大仓位价值
-        max_value = account.total_equity * risk_pct / 100
-        # 名义仓位（考虑杠杆）
-        nominal = max_value * leverage
-        # 数量
+        # 保证金 = equity * risk_pct%
+        margin = account.total_equity * risk_pct / 100
+        # 名义仓位 = 保证金 * 杠杆
+        nominal = margin * leverage
+        # 数量 = 名义仓位 / 价格
         quantity = nominal / price
         return quantity
 
@@ -903,106 +902,74 @@ class OrderManager:
     def __init__(self, client: BinanceClient, risk: RiskEngine):
         self.client = client
         self.risk = risk
-        self._pending_orders: Dict[str, dict] = {}  # symbol -> order_info
+        self._pending_orders: Dict[str, dict] = {}
 
     def open_position(self, symbol: str, side: PositionSide,
                       quantity: float, leverage: int, price: float,
                       strategy: str = "unknown", dry_run: bool = False,
                       account: AccountState = None) -> dict:
-        """开仓全流程"""
         result = {"symbol": symbol, "side": side.value, "quantity": quantity,
                   "leverage": leverage, "status": "pending", "dry_run": dry_run}
-
         if dry_run:
             sl = self.risk.calc_stop_loss(price, side)
             tp = self.risk.calc_take_profit(price, side)
             margin_needed = round(price * quantity / leverage, 4)
-
-            # 在 DRY-RUN 模式下也创建虚拟持仓，纳入账户跟踪
             if account is not None:
                 position = Position(
-                    symbol=symbol,
-                    side=side,
-                    quantity=quantity,
-                    entry_price=price,
-                    leverage=leverage,
-                    mark_price=price,  # 开仓时标记价格=入场价
-                    unrealized_pnl=0,
-                    margin=margin_needed,
-                    signal_strategy=strategy,
+                    symbol=symbol, side=side, quantity=quantity, entry_price=price,
+                    leverage=leverage, mark_price=price, unrealized_pnl=0,
+                    margin=margin_needed, signal_strategy=strategy,
                     entry_time=datetime.now(timezone.utc).isoformat(),
-                    stop_loss_price=sl,
-                    take_profit_price=tp,
-                    highest_pnl=0,  # 初始盈亏为 0（开仓瞬间）
+                    stop_loss_price=sl, take_profit_price=tp, highest_pnl=0,
                 )
                 account.positions.append(position)
-                # 扣减可用余额（模拟保证金占用）
                 account.available_balance = max(0, account.available_balance - margin_needed)
                 logger.info(f"🔵 DRY-RUN 开仓: {side.value.upper()} {symbol} {quantity} @ {price} "
                            f"(杠杆:{leverage}x, 止损:{sl}, 止盈:{tp}, 保证金:{margin_needed})")
             else:
                 logger.info(f"🔵 DRY-RUN 开仓信号: {side.value.upper()} {symbol} {quantity} @ {price} "
                            f"(杠杆:{leverage}x, 止损:{sl}, 止盈:{tp})")
-
             result["status"] = "dry_run_approved"
             result["stop_loss"] = sl
             result["take_profit"] = tp
             result["margin_needed"] = margin_needed
             self._record_trade("open", symbol, side.value, quantity, price, strategy, "DRY-RUN")
-
-            # Telegram 通知（DRY-RUN）
             try:
                 notifier.trade_opened(symbol, side.value, quantity, price,
                                      leverage, strategy, sl, tp, dry_run=True)
             except Exception as e:
                 logger.warning(f"通知发送失败: {e}")
-
             return result
 
         try:
-            # 1. 设置杠杆
             self.client.change_leverage(symbol, leverage)
             time.sleep(0.5)
-
-            # 2. 市价开仓
             binance_side = "BUY" if side == PositionSide.LONG else "SELL"
             qty = self.client.adjust_quantity(symbol, quantity)
             order = self.client.new_order(symbol, binance_side, "MARKET", quantity=qty)
-
             if "error" in order:
                 result["status"] = "failed"
                 result["error"] = order["error"]
                 logger.error(f"❌ 开仓失败: {order['error']}")
                 return result
-
             result["status"] = "opened"
             result["order_id"] = order.get("orderId", 0)
             result["fill_price"] = float(order.get("avgPrice", order.get("price", price)))
             result["executed_qty"] = float(order.get("executedQty", qty))
-
             logger.info(f"✅ 开仓成功: {side.value.upper()} {symbol} {qty} @ {result['fill_price']}")
-
-            # Telegram 通知
             try:
                 notifier.trade_opened(symbol, side.value, quantity, result['fill_price'],
                                      leverage, strategy, sl, tp, dry_run=False)
             except Exception as e:
                 logger.warning(f"通知发送失败: {e}")
-
-            # 3. 设置止损止盈
             sl = self.risk.calc_stop_loss(result["fill_price"], side)
             tp = self.risk.calc_take_profit(result["fill_price"], side)
             result["stop_loss"] = sl
             result["take_profit"] = tp
-
             self._place_sl_tp(symbol, side, sl, tp)
-
-            # 4. 记录
             self._record_trade("open", symbol, side.value, quantity,
                               result["fill_price"], strategy, "OK")
-
             return result
-
         except Exception as e:
             result["status"] = "failed"
             result["error"] = str(e)
@@ -1012,18 +979,13 @@ class OrderManager:
     def close_position(self, symbol: str, dry_run: bool = False,
                        reason: str = "", account: AccountState = None,
                        client: BinanceClient = None) -> dict:
-        """平仓"""
         result = {"symbol": symbol, "status": "pending", "dry_run": dry_run, "reason": reason}
-
         if dry_run:
-            # DRY-RUN 模式：模拟完整平仓流程
             if account is None:
                 result["status"] = "dry_run_approved"
                 logger.info(f"🔵 DRY-RUN 平仓信号: {symbol} (原因: {reason})")
                 self._record_trade("close", symbol, "unknown", 0, 0, reason, "DRY-RUN")
                 return result
-
-            # 查找虚拟持仓
             pos = None
             pos_idx = -1
             for i, p in enumerate(account.positions):
@@ -1031,13 +993,10 @@ class OrderManager:
                     pos = p
                     pos_idx = i
                     break
-
             if pos is None:
                 result["status"] = "no_position"
                 logger.info(f"🔵 DRY-RUN 平仓: {symbol} 无虚拟持仓")
                 return result
-
-            # 获取当前市价（模拟平仓成交价）
             exit_price = pos.mark_price
             if client is not None and exit_price == 0:
                 try:
@@ -1045,77 +1004,57 @@ class OrderManager:
                     exit_price = float(price_data.get("price", pos.entry_price))
                 except Exception:
                     exit_price = pos.entry_price
-
-            # 计算盈亏
             direction = 1 if pos.side == PositionSide.LONG else -1
             pnl = (exit_price - pos.entry_price) / pos.entry_price * pos.quantity * pos.leverage * direction
             pnl_pct = (exit_price - pos.entry_price) / pos.entry_price * 100 * direction
-
-            # 更新账户
-            account.available_balance += pos.margin + pnl  # 返还保证金 + 盈亏
+            account.available_balance += pos.margin + pnl
             account.positions.pop(pos_idx)
-
             result["status"] = "dry_run_closed"
             result["fill_price"] = exit_price
             result["pnl"] = round(pnl, 4)
             result["pnl_pct"] = round(pnl_pct, 4)
             result["entry_price"] = pos.entry_price
-
             emoji = "✅" if pnl > 0 else "❌"
             logger.info(f"🔵 DRY-RUN {emoji} 平仓: {symbol} {pos.side.value.upper()} "
                        f"{pos.quantity} @ {exit_price:.4f} "
                        f"(入场:{pos.entry_price}, 盈亏:{pnl:+.4f} USDT / {pnl_pct:+.2f}%, 原因: {reason})")
-
             self._record_trade("close", symbol, pos.side.value, pos.quantity,
                               exit_price, reason, f"DRY-RUN pnl={pnl:+.4f}")
-
-            # Telegram 通知（DRY-RUN）
             try:
                 notifier.trade_closed(symbol, pos.side.value, pos.quantity,
                                      pos.entry_price, exit_price, pnl, pnl_pct, reason, dry_run=True)
             except Exception as e:
                 logger.warning(f"通知发送失败: {e}")
-
             return result
 
         try:
-            # 获取持仓
             positions = self.client.positions(symbol)
             if not positions:
                 result["status"] = "no_position"
                 return result
-
             pos = positions[0]
             pos_amt = float(pos["positionAmt"])
             if pos_amt == 0:
                 result["status"] = "no_position"
                 return result
-
             close_side = "SELL" if pos_amt > 0 else "BUY"
             qty = abs(pos_amt)
             qty = self.client.adjust_quantity(symbol, qty)
-
             order = self.client.new_order(symbol, close_side, "MARKET",
                                           quantity=qty, reduce_only=True)
-
             if "error" in order:
                 result["status"] = "failed"
                 result["error"] = order["error"]
                 return result
-
             result["status"] = "closed"
             result["fill_price"] = float(order.get("avgPrice", 0))
             result["pnl"] = float(pos.get("unRealizedProfit", 0))
-
             logger.info(f"✅ 平仓成功: {symbol} {qty} @ {result['fill_price']} "
                        f"(盈亏: {result['pnl']:.4f}, 原因: {reason})")
-
             self._record_trade("close", symbol,
                               "long" if pos_amt > 0 else "short", qty,
                               result["fill_price"], reason,
                               f"OK pnl={result['pnl']:.4f}")
-
-            # Telegram 通知
             try:
                 entry_price = float(pos.get("entryPrice", 0))
                 pnl_pct_val = (result["fill_price"] - entry_price) / entry_price * 100 * (1 if pos_amt > 0 else -1)
@@ -1124,9 +1063,7 @@ class OrderManager:
                                      reason, dry_run=False)
             except Exception as e:
                 logger.warning(f"通知发送失败: {e}")
-
             return result
-
         except Exception as e:
             result["status"] = "failed"
             result["error"] = str(e)
@@ -1135,16 +1072,13 @@ class OrderManager:
 
     def _place_sl_tp(self, symbol: str, side: PositionSide,
                      sl_price: float, tp_price: float):
-        """设置止损止盈订单"""
         try:
             close_side = "SELL" if side == PositionSide.LONG else "BUY"
             sl_price = self.client.adjust_price(symbol, sl_price)
             tp_price = self.client.adjust_price(symbol, tp_price)
-
             self.client.new_order(symbol, close_side, "STOP_MARKET",
                                   stop_price=sl_price, close_position=True)
             logger.info(f"🛡 止损已设置: {sl_price}")
-
             self.client.new_order(symbol, close_side, "TAKE_PROFIT_MARKET",
                                   stop_price=tp_price, close_position=True)
             logger.info(f"🎯 止盈已设置: {tp_price}")
@@ -1153,19 +1087,13 @@ class OrderManager:
 
     def _record_trade(self, action: str, symbol: str, side: str,
                       quantity: float, price: float, strategy: str, result: str):
-        """记录交易到文件"""
         history_file = os.path.join(STATE_DIR, "trade_history.json")
         entry = {
             "time": datetime.now(timezone.utc).isoformat(),
-            "action": action,
-            "symbol": symbol,
-            "side": side,
-            "quantity": quantity,
-            "price": price,
-            "strategy": strategy,
-            "result": result,
+            "action": action, "symbol": symbol, "side": side,
+            "quantity": quantity, "price": price,
+            "strategy": strategy, "result": result,
         }
-
         try:
             if os.path.exists(history_file):
                 with open(history_file) as f:
@@ -1180,11 +1108,11 @@ class OrderManager:
 
 
 # ═══════════════════════════════════════════
-# 主交易引擎
+# 主交易引擎 V2
 # ═══════════════════════════════════════════
 
 class TradingEngine:
-    """主交易引擎 — 全闭环自动化"""
+    """主交易引擎 V2 — 多策略聚合 + 风控独立巡检"""
 
     def __init__(self, dry_run: bool = True):
         self.dry_run = dry_run
@@ -1201,25 +1129,27 @@ class TradingEngine:
         self.running = False
         self.cycle_count = 0
         self.last_cycle_time = 0
-        self.cycle_interval = 60  # 秒，主循环间隔
+        self.cycle_interval = 60
 
-        # 风控独立巡检线程
-        self.risk_interval = 15  # 风控检查频率：15 秒
+        self.risk_interval = 15
         self._risk_thread: Optional[threading.Thread] = None
         self._risk_stop_event = threading.Event()
 
         # 信号置信度阈值
-        self.min_confidence = 0.7
+        self.min_confidence = 0.65
 
-        # 缓存
         self._kline_cache: Dict[str, List[dict]] = {}
         self._last_signal_time: Dict[str, float] = {}
-        self.signal_cooldown = 300  # 信号冷却 5 分钟
+        self.signal_cooldown = 300
 
-        logger.info(f"🚀 交易引擎初始化 {'[DRY-RUN 模拟模式]' if dry_run else '[实盘模式]'}")
-        logger.info(f"  环境: {BINANCE_API_ENV} | 认证: {'✅' if IS_AUTHENTICATED else '⚠️ 未认证(仅公开数据)'}")
+        # ── 策略自检 ──
+        self._strategy_status: Dict[str, dict] = {}
+
+        logger.info(f"🚀 交易引擎 V2 初始化 {'[DRY-RUN 模拟模式]' if dry_run else '[实盘模式]'}")
+        logger.info(f"  环境: {BINANCE_API_ENV} | 认证: {'✅' if IS_AUTHENTICATED else '⚠️ 未认证'}")
         logger.info(f"  监控币种: {[s['symbol'] for s in self.symbols_config]}")
         logger.info(f"  时间框架: {self.config['timeframe']}")
+        logger.info(f"  活跃策略: {self.config.get('active', [])}")
         logger.info(f"  风控巡检频率: {self.risk_interval}s | 最低信号置信度: {self.min_confidence}")
 
     def _load_config(self) -> dict:
@@ -1235,31 +1165,63 @@ class TradingEngine:
             data = json.load(f)
         return [s for s in data["watchlist"] if s.get("enabled", True)]
 
-    # ── 账户状态 ──
+    def self_check_strategies(self) -> dict:
+        """
+        系统启动时策略自检
+        检查每个策略是否可用，记录状态
+        """
+        logger.info("🔍 开始策略自检...")
+        active = self.config.get("active", [])
+        for name in active:
+            cfg = self.config.get("strategies", {}).get(name, {})
+            enabled = cfg.get("enabled", False)
+            available = False
+            status = "未启用"
+
+            if enabled:
+                if name in ("trend_follow", "mean_reversion", "breakout"):
+                    available = True
+                    status = "✅ 就绪"
+                elif name == "czsc":
+                    available = CZSC_STRATEGY_AVAILABLE
+                    status = "✅ 就绪" if available else "❌ CZSC 库不可用"
+                elif name in ("funding_rate", "lsr_reversal"):
+                    available = False
+                    status = "⏸️ 待实现"
+
+            self._strategy_status[name] = {
+                "enabled": enabled,
+                "available": available,
+                "status": status,
+                "errors": 0,
+            }
+            logger.info(f"  {name}: {status}")
+
+        summary = {
+            "total": len(active),
+            "enabled": sum(1 for s in self._strategy_status.values() if s["enabled"]),
+            "available": sum(1 for s in self._strategy_status.values() if s["available"]),
+        }
+        logger.info(f"📋 自检完成: {summary['enabled']}/{summary['total']} 启用, "
+                    f"{summary['available']}/{summary['total']} 就绪")
+        return summary
 
     def refresh_account(self):
-        """刷新账户状态"""
         if not IS_AUTHENTICATED:
-            # 模拟账户
-            self.account.total_equity = 10000  # 模拟 10000 USDT
+            self.account.total_equity = 10000
             self.account.available_balance = 10000
             self.account.positions = []
             return
-
         try:
             balances = self.client.account_balance()
             acc_info = self.client.account_info()
-
             for b in balances:
                 if b.get("asset") == "USDT":
                     self.account.total_equity = float(b.get("totalWalletBalance", 0))
                     self.account.available_balance = float(b.get("availableBalance", 0))
-
             self.account.unrealized_pnl = float(acc_info.get("totalUnrealizedProfit", 0))
             self.account.margin_balance = float(acc_info.get("totalMarginBalance", 0))
             self.account.total_equity = self.account.margin_balance
-
-            # 刷新持仓
             raw_positions = self.client.positions()
             self.account.positions = []
             for p in raw_positions:
@@ -1267,48 +1229,35 @@ class TradingEngine:
                 if amt == 0:
                     continue
                 pos = Position(
-                    symbol=p["symbol"],
-                    side=PositionSide.LONG if amt > 0 else PositionSide.SHORT,
-                    quantity=abs(amt),
-                    entry_price=float(p["entryPrice"]),
-                    leverage=int(p["leverage"]),
-                    unrealized_pnl=float(p["unRealizedProfit"]),
+                    symbol=p["symbol"], side=PositionSide.LONG if amt > 0 else PositionSide.SHORT,
+                    quantity=abs(amt), entry_price=float(p["entryPrice"]),
+                    leverage=int(p["leverage"]), unrealized_pnl=float(p["unRealizedProfit"]),
                     mark_price=float(p["markPrice"]),
                     liquidation_price=float(p["liquidationPrice"]),
                     entry_time=datetime.now(timezone.utc).isoformat(),
                 )
                 self.account.positions.append(pos)
-
-            # 更新风控起始
             if self.risk._daily_start_equity == 0:
                 self.risk.set_daily_start(self.account.total_equity)
             self.risk._peak_equity = max(self.risk._peak_equity, self.account.total_equity)
-
             logger.info(f"💰 账户: 权益={self.account.total_equity:.2f} | "
                        f"可用={self.account.available_balance:.2f} | "
                        f"未实现盈亏={self.account.unrealized_pnl:.2f} | "
                        f"持仓={len(self.account.positions)}")
-
         except Exception as e:
             logger.error(f"刷新账户状态失败: {e}")
 
-    # ── 行情采集 ──
-
     def fetch_klines(self, symbol: str, timeframe: str = None) -> List[dict]:
-        """获取 K 线数据"""
         tf = timeframe or self.config["timeframe"]
         cache_key = f"{symbol}_{tf}"
-
         try:
             raw = self.client.klines(symbol, tf, 200)
             if isinstance(raw, dict) and "error" in raw:
                 logger.warning(f"K 线获取失败 {symbol}: {raw['error']}")
                 return self._kline_cache.get(cache_key, [])
-
             candles = self.strategy.parse_klines(raw)
             if candles:
                 self._kline_cache[cache_key] = candles
-                # 保存到文件
                 self._save_kline(symbol, tf, raw)
             return candles
         except Exception as e:
@@ -1316,7 +1265,6 @@ class TradingEngine:
             return self._kline_cache.get(cache_key, [])
 
     def _save_kline(self, symbol: str, tf: str, raw: list):
-        """保存 K 线到本地"""
         ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         path = os.path.join(DATA_DIR, "klines", f"{symbol}_{tf}_{ts}.json")
         try:
@@ -1326,54 +1274,74 @@ class TradingEngine:
             pass
 
     def get_current_price(self, symbol: str) -> float:
-        """获取当前价格"""
         try:
             data = self.client.ticker_price(symbol)
             return float(data.get("price", 0))
         except Exception:
-            # 从缓存 K 线取
             candles = self._kline_cache.get(f"{symbol}_{self.config['timeframe']}", [])
             if candles:
                 return candles[-1]["close"]
             return 0
 
-    # ── 信号处理 ──
-
     def process_signals(self) -> List[TradeSignal]:
-        """运行策略引擎，处理信号"""
-        all_signals = []
+        """
+        V2 信号处理:
+          1. 每个币种获取 15m + 1h K 线
+          2. 所有策略运行（CZSC 接收双级别数据）
+          3. 信号聚合（加权投票 + 冲突检测）
+          4. 过滤低置信度
+        """
+        final_signals = []
 
         for sym_cfg in self.symbols_config:
             symbol = sym_cfg["symbol"]
+            logger.info(f"📡 分析 {symbol}...")
 
-            # 多时间框架分析
+            # 获取 15m 和 1h K 线
             candles_15m = self.fetch_klines(symbol, "15m")
-            signals_15m = self.strategy.analyze(candles_15m)
-            for s in signals_15m:
-                s.symbol = symbol
-                all_signals.append(s)
+            candles_1h = self.fetch_klines(symbol, "1h")
 
-            # 1h 确认
-            if len(self.config.get("active", [])) > 1:
-                candles_1h = self.fetch_klines(symbol, "1h")
-                signals_1h = self.strategy.analyze(candles_1h)
-                # 1h 信号权重更高
-                for s in signals_1h:
-                    s.symbol = symbol
-                    s.timeframe = "1h"
-                    s.confidence = min(s.confidence + 0.1, 1.0)
-                    all_signals.append(s)
+            if not candles_15m:
+                logger.warning(f"  {symbol}: 15m K 线数据为空，跳过")
+                continue
 
-        # 信号聚合 — 同一币种取最高置信度
-        best_signals = {}
-        for sig in all_signals:
-            key = f"{sig.symbol}_{sig.action.value}"
-            if key not in best_signals or sig.confidence > best_signals[key].confidence:
-                best_signals[key] = sig
+            # 运行所有策略
+            signals = self.strategy.analyze(candles_15m, symbol=symbol, candles_1h=candles_1h)
 
-        # 过滤低置信度信号
-        filtered = [s for s in best_signals.values() if s.confidence >= self.min_confidence]
-        low_conf = [s for s in best_signals.values() if s.confidence < self.min_confidence]
+            # 记录各策略信号状态
+            strategy_names = [n for n, c in self.config.get("strategies", {}).items() if c.get("enabled")]
+            signaled = set(s.strategy for s in signals)
+            silent = [n for n in strategy_names if n not in signaled and n in ("trend_follow", "mean_reversion", "breakout", "czsc")]
+            if signals:
+                logger.info(f"  {symbol}: {len(signals)} 个策略发出信号 → {[s.strategy for s in signals]}")
+            if silent:
+                logger.debug(f"  {symbol}: 无信号策略 → {silent}")
+
+            if signals:
+                # 信号聚合
+                aggregated = self.strategy.aggregate_signals(signals, symbol)
+                if aggregated:
+                    logger.info(f"  {symbol} 聚合信号: {aggregated.action.value.upper()} "
+                               f"(confidence={aggregated.confidence:.0%}, "
+                               f"策略={aggregated.strategy})")
+                    final_signals.append(aggregated)
+                else:
+                    logger.info(f"  {symbol}: 信号聚合后无有效结果")
+
+            # 单独记录 CZSC 多级别分析结果
+            czsc_signals = [s for s in signals if s.strategy == "czsc"]
+            if czsc_signals:
+                czsc = czsc_signals[0]
+                details = czsc.details.get("czsc_details", {})
+                logger.info(f"  {symbol} CZSC: bi_dir={details.get('bi_direction', '?')}, "
+                           f"trend={details.get('trend_bias', '?')}, "
+                           f"fx={details.get('fx_type', '?')}, "
+                           f"decision={details.get('decision_dir', '?')}, "
+                           f"conf={czsc.confidence:.0%}")
+
+        # 全局过滤低置信度
+        filtered = [s for s in final_signals if s.confidence >= self.min_confidence]
+        low_conf = [s for s in final_signals if s.confidence < self.min_confidence]
         if low_conf:
             for s in low_conf:
                 logger.info(f"🔽 {s.symbol} {s.action.value.upper()} 置信度 {s.confidence:.0%} "
@@ -1387,11 +1355,9 @@ class TradingEngine:
         return filtered
 
     def execute_signal(self, signal: TradeSignal):
-        """执行交易信号"""
         symbol = signal.symbol
         action = signal.action
 
-        # 冷却检查
         now = time.time()
         last = self._last_signal_time.get(symbol, 0)
         if now - last < self.signal_cooldown:
@@ -1406,13 +1372,13 @@ class TradingEngine:
         self._last_signal_time[symbol] = now
 
     def _handle_buy_signal(self, signal: TradeSignal):
-        """处理做多信号"""
         symbol = signal.symbol
         price = signal.price
-        leverage = self.config.get("strategies", {}).get(
-            signal.strategy, {}).get("leverage", self.risk_config["max_leverage"])
+        # 从配置中获取该策略的杠杆
+        leverages = [self.config.get("strategies", {}).get(s, {}).get("leverage", self.risk_config["max_leverage"])
+                     for s in signal.strategy.split(",")]
+        leverage = max(leverages)  # 取最大
 
-        # 检查是否已有空仓需要平
         for pos in self.account.positions:
             if pos.symbol == symbol and pos.side == PositionSide.SHORT:
                 logger.info(f"🔄 {symbol} 有空仓，先平仓再做多")
@@ -1421,14 +1387,11 @@ class TradingEngine:
                                            account=self.account, client=self.client)
                 break
 
-        # 计算仓位大小
         qty = self.risk.calc_position_size(self.account, price, leverage)
         qty = self.client.adjust_quantity(symbol, qty) if not self.dry_run else round(qty, 6)
 
-        # 风控审核
         ok, reason = self.risk.can_open_position(
             self.account, symbol, PositionSide.LONG, qty, leverage, price)
-
         if not ok:
             logger.warning(f"🚫 {symbol} 做多被风控拒绝: {reason}")
             try:
@@ -1437,23 +1400,20 @@ class TradingEngine:
                 pass
             return
 
-        # 执行开仓
         result = self.orders.open_position(
             symbol, PositionSide.LONG, qty, leverage, price,
             strategy=signal.strategy, dry_run=self.dry_run, account=self.account)
-
         if result["status"] in ("opened", "dry_run_approved"):
             logger.info(f"📈 {symbol} 做多已执行: qty={qty}, leverage={leverage}x, "
                        f"置信度={signal.confidence}")
 
     def _handle_sell_signal(self, signal: TradeSignal):
-        """处理做空信号"""
         symbol = signal.symbol
         price = signal.price
-        leverage = self.config.get("strategies", {}).get(
-            signal.strategy, {}).get("leverage", self.risk_config["max_leverage"])
+        leverages = [self.config.get("strategies", {}).get(s, {}).get("leverage", self.risk_config["max_leverage"])
+                     for s in signal.strategy.split(",")]
+        leverage = max(leverages)
 
-        # 检查是否已有多仓需要平
         for pos in self.account.positions:
             if pos.symbol == symbol and pos.side == PositionSide.LONG:
                 logger.info(f"🔄 {symbol} 有多仓，先平仓再做空")
@@ -1467,7 +1427,6 @@ class TradingEngine:
 
         ok, reason = self.risk.can_open_position(
             self.account, symbol, PositionSide.SHORT, qty, leverage, price)
-
         if not ok:
             logger.warning(f"🚫 {symbol} 做空被风控拒绝: {reason}")
             try:
@@ -1479,81 +1438,58 @@ class TradingEngine:
         result = self.orders.open_position(
             symbol, PositionSide.SHORT, qty, leverage, price,
             strategy=signal.strategy, dry_run=self.dry_run, account=self.account)
-
         if result["status"] in ("opened", "dry_run_approved"):
             logger.info(f"📉 {symbol} 做空已执行: qty={qty}, leverage={leverage}x, "
                        f"置信度={signal.confidence}")
 
-    # ── 持仓风控 ──
-
     def monitor_positions(self):
-        """监控持仓，执行止损/止盈"""
         if not self.account.positions:
             return
-
         for pos in list(self.account.positions):
-            # 更新标记价格
             try:
                 price_data = self.client.mark_price(pos.symbol)
                 pos.mark_price = float(price_data.get("markPrice", pos.mark_price))
             except Exception:
                 continue
-
-            # 风控检查
             action = self.risk.check_position_risk(pos)
             if action:
                 logger.warning(f"⚠️ {pos.symbol} {action}")
-                # Telegram 风控通知
                 risk_level = "critical" if "STOP_LOSS" in action else "warning"
                 try:
                     notifier.risk_warning(pos.symbol, action, level=risk_level)
                 except Exception:
                     pass
-                if "STOP_LOSS" in action or "TRAILING_STOP" in action:
+                if any(kw in action for kw in ("STOP_LOSS", "TRAILING_STOP", "TAKE_PROFIT")):
                     self.orders.close_position(pos.symbol, self.dry_run, reason=action,
                                                account=self.account, client=self.client)
-                elif "TAKE_PROFIT" in action:
-                    self.orders.close_position(pos.symbol, self.dry_run, reason=action,
-                                               account=self.account, client=self.client)
-
-    # ── 主循环 ──
 
     def run_cycle(self):
-        """执行一个完整交易周期"""
         self.cycle_count += 1
         self.last_cycle_time = time.time()
-
         logger.info(f"\n{'='*50}")
-        logger.info(f"🔄 第 {self.cycle_count} 个周期")
+        logger.info(f"🔄 第 {self.cycle_count} 个周期 (策略数: {len([s for s in self.config.get('active', []) if self.config.get('strategies',{}).get(s,{}).get('enabled')])})")
         logger.info(f"{'='*50}")
 
-        # 1. 刷新账户
         self.refresh_account()
 
-        # 2. 风控巡检已移至独立线程（每 15 秒），此处不再重复
-
-        # 3. 检查熔断
         if self.client.is_circuit_broken:
             logger.warning("🚨 API 熔断中，跳过本轮交易")
             return
 
-        # 4. 策略计算
         signals = self.process_signals()
 
         if signals:
-            logger.info(f"📡 发现 {len(signals)} 个信号:")
+            logger.info(f"📡 发现 {len(signals)} 个聚合信号:")
             for sig in signals:
                 logger.info(f"  {sig.symbol}: {sig.action.value.upper()} "
-                          f"({sig.strategy}, confidence={sig.confidence})")
+                          f"({sig.strategy}, confidence={sig.confidence:.0%})")
                 self.execute_signal(sig)
         else:
             logger.info("ℹ️  无交易信号")
 
-        # 5. 保存状态
         self._save_state()
 
     def _save_state(self):
-        """保存引擎状态"""
         state = {
             "cycle_count": self.cycle_count,
             "last_cycle": datetime.now(timezone.utc).isoformat(),
@@ -1565,6 +1501,7 @@ class TradingEngine:
                 "positions_count": len(self.account.positions),
             },
             "circuit_breaker": self.client.circuit_breaker,
+            "strategy_status": self._strategy_status,
         }
         path = os.path.join(STATE_DIR, "engine_state.json")
         try:
@@ -1574,27 +1511,22 @@ class TradingEngine:
             logger.error(f"保存状态失败: {e}")
 
     def _risk_monitor_loop(self):
-        """独立风控巡检线程 — 每 risk_interval 秒检查一次持仓风险"""
         logger.info(f"🛡 风控巡检线程启动（每 {self.risk_interval}s）")
         while not self._risk_stop_event.is_set():
             try:
                 if self.account.positions:
-                    # 刷新账户持仓的标记价格
                     self.refresh_account()
-                    # 执行风控检查
                     self.monitor_positions()
                 else:
                     logger.debug("🛡 风控巡检：无持仓，跳过")
             except Exception as e:
                 logger.error(f"风控巡检异常: {e}")
-            # 等待下一个巡检周期
             self._risk_stop_event.wait(self.risk_interval)
         logger.info("🛡 风控巡检线程已停止")
 
     def start(self):
-        """启动交易引擎"""
         self.running = True
-        logger.info("🚀 交易引擎启动")
+        logger.info("🚀 交易引擎 V2 启动")
 
         if self.dry_run:
             logger.info("🔵 当前为 DRY-RUN 模式，不会真实下单")
@@ -1603,15 +1535,16 @@ class TradingEngine:
         def stop_handler(signum, frame):
             logger.info("收到停止信号，正在安全退出...")
             self.running = False
-            self._risk_stop_event.set()  # 停止风控线程
+            self._risk_stop_event.set()
 
         sig.signal(sig.SIGINT, stop_handler)
         sig.signal(sig.SIGTERM, stop_handler)
 
-        # 初始账户刷新
+        # 策略自检
+        self.self_check_strategies()
+
         self.refresh_account()
 
-        # 启动独立风控巡检线程
         self._risk_thread = threading.Thread(target=self._risk_monitor_loop, daemon=True)
         self._risk_thread.start()
 
@@ -1620,24 +1553,19 @@ class TradingEngine:
                 self.run_cycle()
             except Exception as e:
                 logger.error(f"周期异常: {e}", exc_info=True)
-
-            # 等待下一周期
             wait_time = max(0, self.cycle_interval - (time.time() - self.last_cycle_time))
             if wait_time > 0:
                 time.sleep(wait_time)
 
-        # 停止风控线程
         self._risk_stop_event.set()
         if self._risk_thread and self._risk_thread.is_alive():
             self._risk_thread.join(timeout=5)
-
         logger.info("交易引擎已停止")
 
     def status(self):
-        """输出当前状态"""
         self.refresh_account()
         print(f"\n{'='*50}")
-        print(f"📊 交易引擎状态")
+        print(f"📊 交易引擎 V2 状态")
         print(f"{'='*50}")
         print(f"模式: {'DRY-RUN 模拟' if self.dry_run else '实盘'}")
         print(f"环境: {BINANCE_API_ENV}")
@@ -1651,7 +1579,10 @@ class TradingEngine:
             pnl = pos.pnl_pct()
             print(f"  {pos.symbol}: {pos.side.value.upper()} {pos.quantity} "
                   f"@ {pos.entry_price} | 现价={pos.mark_price} | "
-                  f"盈亏={pnl:.2f}% | 杠杆={pos.leverage}x")
+                  f"盈亏={pnl:.2f}% | 杠杆={pos.leverage}x | 策略={pos.signal_strategy}")
+        print(f"\n策略状态:")
+        for name, info in self._strategy_status.items():
+            print(f"  {name}: {info['status']} (启用={info['enabled']}, 错误={info['errors']})")
         print(f"{'='*50}\n")
 
 
@@ -1661,9 +1592,10 @@ class TradingEngine:
 
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description="量化交易核心引擎")
+    parser = argparse.ArgumentParser(description="量化交易核心引擎 V2")
     parser.add_argument("--live", action="store_true", help="实盘模式（默认 dry-run）")
     parser.add_argument("--status", action="store_true", help="查看状态")
+    parser.add_argument("--self-check", action="store_true", help="仅执行策略自检")
     parser.add_argument("--interval", type=int, default=60, help="循环间隔(秒)")
     parser.add_argument("--cooldown", type=int, default=300, help="信号冷却(秒)")
     args = parser.parse_args()
@@ -1675,6 +1607,10 @@ def main():
 
     if args.status:
         engine.status()
+        return
+
+    if args.self_check:
+        engine.self_check_strategies()
         return
 
     if args.live:
