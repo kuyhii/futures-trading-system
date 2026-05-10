@@ -63,6 +63,9 @@ load_env()
 # ── 通知模块 ──
 from core.notify import notifier
 
+# ── K线数据管理器 ──
+from core.kline_manager import KlineManager
+
 # ── CZSC 缠论策略 ──
 try:
     from core.strategies.czsc_strategy import generate_czsc_signal as _czsc_gen_signal
@@ -390,7 +393,7 @@ class Position:
     entry_time: str = ""
     stop_loss_price: float = 0
     take_profit_price: float = 0
-    highest_pnl: float = 0  # 追踪止损用，初始化为0（开仓时 pnl=0）
+    highest_pnl: float = 0  # 追踪止损用，开仓时 pnl=0
 
     def pnl_pct(self) -> float:
         if self.entry_price == 0:
@@ -1141,6 +1144,16 @@ class TradingEngine:
         self._last_signal_time: Dict[str, float] = {}
         self.signal_cooldown = 300
 
+        # ── K线数据管理器（本地采集+合成） ──
+        self.symbols_list = [s["symbol"] for s in self.symbols_config]
+        self.kline_manager = KlineManager(
+            symbols=self.symbols_list,
+            api_key=BINANCE_API_KEY,
+            api_secret=BINANCE_SECRET_KEY,
+            base_url=BASE_URL,
+        )
+        logger.info("📊 K线数据管理器已初始化（本地采集+合成模式）")
+
         # ── 策略自检 ──
         self._strategy_status: Dict[str, dict] = {}
 
@@ -1183,6 +1196,10 @@ class TradingEngine:
         if not added and not removed:
             logger.info("🔄 品种池无变化")
 
+        # 同步更新 kline_manager 的品种列表
+        self.symbols_list = new_symbols
+        self.kline_manager.update_symbols(new_symbols)
+
         logger.info(f"  当前监控币种: {new_symbols} ({len(new_symbols)} 个)")
         return len(new_symbols)
 
@@ -1193,11 +1210,8 @@ class TradingEngine:
         """
         import subprocess
         script_path = os.path.join(ROOT, "scripts", "update_symbols_pool.py")
-        # 注意：脚本 V2 使用 --no-prod 跳过实盘，--dry-run 只输出不写入
-        # 引擎自动更新时使用静默模式
+        # 脚本 V2 默认模式：同时获取实盘+模拟盘数据进行双验证
         cmd_args = [sys.executable, script_path]
-        if BINANCE_API_ENV == "prod":
-            cmd_args.append("--no-prod")  # 实盘环境不跳过
 
         logger.info("🔄 开始每日品种池自动更新...")
         result = subprocess.run(
@@ -1206,7 +1220,6 @@ class TradingEngine:
         )
         if result.returncode == 0:
             logger.info("✅ 品种池脚本执行成功")
-            # 重新加载品种配置
             self.reload_symbols()
         else:
             logger.error(f"❌ 品种池脚本执行失败 (exit={result.returncode})")
@@ -1295,8 +1308,32 @@ class TradingEngine:
             logger.error(f"刷新账户状态失败: {e}")
 
     def fetch_klines(self, symbol: str, timeframe: str = None) -> List[dict]:
+        """
+        从本地 K 线管理器读取数据
+        - 1m: 从本地 1m JSONL 读取，不足时从 API 补充
+        - 2m: 从本地 2m JSONL 读取（由 1m 合成）
+        - 其他时间框架: 仍从 API 获取（兼容 CZSC 的 15m 确认）
+        """
         tf = timeframe or self.config["timeframe"]
         cache_key = f"{symbol}_{tf}"
+
+        # 1m 和 2m 走本地数据管理器
+        if tf in ("1m", "2m"):
+            try:
+                if tf == "1m":
+                    raw_klines = self.kline_manager.get_klines_1m(symbol, limit=200)
+                else:
+                    raw_klines = self.kline_manager.get_klines_2m(symbol, limit=200)
+
+                if raw_klines:
+                    self._kline_cache[cache_key] = raw_klines
+                    return raw_klines
+                else:
+                    logger.warning(f"本地 {tf} K 线为空 {symbol}，尝试从 API 回退")
+            except Exception as e:
+                logger.warning(f"本地 {tf} K 线读取失败 {symbol}: {e}，从 API 回退")
+
+        # 回退：从 API 获取（兼容 15m 等其他时间框架）
         try:
             raw = self.client.klines(symbol, tf, 200)
             if isinstance(raw, dict) and "error" in raw:
@@ -1305,20 +1342,10 @@ class TradingEngine:
             candles = self.strategy.parse_klines(raw)
             if candles:
                 self._kline_cache[cache_key] = candles
-                self._save_kline(symbol, tf, raw)
             return candles
         except Exception as e:
             logger.error(f"K 线获取异常 {symbol}: {e}")
             return self._kline_cache.get(cache_key, [])
-
-    def _save_kline(self, symbol: str, tf: str, raw: list):
-        ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        path = os.path.join(DATA_DIR, "klines", f"{symbol}_{tf}_{ts}.json")
-        try:
-            with open(path, "w") as f:
-                json.dump(raw, f)
-        except Exception:
-            pass
 
     def get_current_price(self, symbol: str) -> float:
         try:
@@ -1583,6 +1610,7 @@ class TradingEngine:
             logger.info("收到停止信号，正在安全退出...")
             self.running = False
             self._risk_stop_event.set()
+            self.kline_manager.stop()
 
         sig.signal(sig.SIGINT, stop_handler)
         sig.signal(sig.SIGTERM, stop_handler)
@@ -1591,6 +1619,18 @@ class TradingEngine:
         self.self_check_strategies()
 
         self.refresh_account()
+
+        # ── K线数据管理器初始化 ──
+        logger.info("📥 初始化 K 线数据管理器...")
+        try:
+            self.kline_manager.initial_load()
+        except Exception as e:
+            logger.error(f"K 线初始加载失败: {e}")
+
+        # 启动后台更新线程（每 60 秒更新所有品种 1m K 线）
+        self.kline_manager.start_background_update(interval=60)
+        # 启动后台清理线程（每 12 小时清理超过 6 小时的数据）
+        self.kline_manager.start_background_cleanup(interval=43200, max_age_hours=6.0)
 
         self._risk_thread = threading.Thread(target=self._risk_monitor_loop, daemon=True)
         self._risk_thread.start()
@@ -1617,6 +1657,10 @@ class TradingEngine:
         self._risk_stop_event.set()
         if self._risk_thread and self._risk_thread.is_alive():
             self._risk_thread.join(timeout=5)
+
+        # 停止 K 线管理器后台线程
+        self.kline_manager.stop()
+
         logger.info("交易引擎已停止")
 
     def status(self):
