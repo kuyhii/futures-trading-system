@@ -1126,6 +1126,10 @@ class TradingEngine:
         self.last_cycle_time = 0
         self.cycle_interval = 60
 
+        # ── 动态品种池定时更新 ──
+        self._last_symbols_update = 0.0
+        self._symbols_update_interval = 86400  # 24h
+
         self.risk_interval = 15
         self._risk_thread: Optional[threading.Thread] = None
         self._risk_stop_event = threading.Event()
@@ -1159,6 +1163,50 @@ class TradingEngine:
         with open(os.path.join(CONFIG_DIR, "symbols.json")) as f:
             data = json.load(f)
         return [s for s in data["watchlist"] if s.get("enabled", True)]
+
+    def reload_symbols(self) -> int:
+        """
+        从 config/symbols.json 重新加载交易品种池（支持动态更新）
+        返回: 加载的 enabled 币种数量
+        """
+        old_symbols = [s["symbol"] for s in self.symbols_config]
+        self.symbols_config = self._load_symbols()
+        new_symbols = [s["symbol"] for s in self.symbols_config]
+
+        added = [s for s in new_symbols if s not in old_symbols]
+        removed = [s for s in old_symbols if s not in new_symbols]
+
+        if added:
+            logger.info(f"✅ 品种池新增: {added}")
+        if removed:
+            logger.info(f"🗑️ 品种池移除: {removed}")
+        if not added and not removed:
+            logger.info("🔄 品种池无变化")
+
+        logger.info(f"  当前监控币种: {new_symbols} ({len(new_symbols)} 个)")
+        return len(new_symbols)
+
+    def _update_symbols_pool(self):
+        """
+        调用外部脚本更新动态品种池，然后重新加载
+        该方法由主循环每日自动调用
+        """
+        import subprocess
+        script_path = os.path.join(ROOT, "scripts", "update_symbols_pool.py")
+        env_flag = "--prod" if BINANCE_API_ENV == "prod" else "--testnet"
+
+        logger.info("🔄 开始每日品种池自动更新...")
+        result = subprocess.run(
+            [sys.executable, script_path, env_flag],
+            capture_output=True, text=True, timeout=120,
+        )
+        if result.returncode == 0:
+            logger.info("✅ 品种池脚本执行成功")
+            # 重新加载品种配置
+            self.reload_symbols()
+        else:
+            logger.error(f"❌ 品种池脚本执行失败 (exit={result.returncode})")
+            logger.error(f"stderr: {result.stderr[:500]}")
 
     def self_check_strategies(self) -> dict:
         """
@@ -1548,6 +1596,16 @@ class TradingEngine:
                 self.run_cycle()
             except Exception as e:
                 logger.error(f"周期异常: {e}", exc_info=True)
+
+            # ── 每日动态品种池更新 ──
+            now = time.time()
+            if now - self._last_symbols_update >= self._symbols_update_interval:
+                try:
+                    self._update_symbols_pool()
+                    self._last_symbols_update = now
+                except Exception as e:
+                    logger.error(f"品种池更新失败: {e}", exc_info=True)
+
             wait_time = max(0, self.cycle_interval - (time.time() - self.last_cycle_time))
             if wait_time > 0:
                 time.sleep(wait_time)
