@@ -22,6 +22,7 @@ import sys
 import time
 import hmac
 import hashlib
+import threading
 import requests
 import logging
 import signal as sig
@@ -33,6 +34,9 @@ from enum import Enum
 # ── 路径 ──
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
+
+# ── 通知模块 ──
+from core.notify import notifier
 CONFIG_DIR = os.path.join(ROOT, "config")
 DATA_DIR = os.path.join(ROOT, "data")
 LOGS_DIR = os.path.join(ROOT, "logs")
@@ -426,7 +430,7 @@ class Position:
     entry_time: str = ""
     stop_loss_price: float = 0
     take_profit_price: float = 0
-    highest_pnl: float = 0  # 追踪止损用
+    highest_pnl: float = -999  # 追踪止损用（初始极小值，开仓后首次更新会设为实际盈亏）
     order_id_open: int = 0
 
     def pnl_pct(self) -> float:
@@ -903,7 +907,8 @@ class OrderManager:
 
     def open_position(self, symbol: str, side: PositionSide,
                       quantity: float, leverage: int, price: float,
-                      strategy: str = "unknown", dry_run: bool = False) -> dict:
+                      strategy: str = "unknown", dry_run: bool = False,
+                      account: AccountState = None) -> dict:
         """开仓全流程"""
         result = {"symbol": symbol, "side": side.value, "quantity": quantity,
                   "leverage": leverage, "status": "pending", "dry_run": dry_run}
@@ -911,12 +916,47 @@ class OrderManager:
         if dry_run:
             sl = self.risk.calc_stop_loss(price, side)
             tp = self.risk.calc_take_profit(price, side)
+            margin_needed = round(price * quantity / leverage, 4)
+
+            # 在 DRY-RUN 模式下也创建虚拟持仓，纳入账户跟踪
+            if account is not None:
+                position = Position(
+                    symbol=symbol,
+                    side=side,
+                    quantity=quantity,
+                    entry_price=price,
+                    leverage=leverage,
+                    mark_price=price,  # 开仓时标记价格=入场价
+                    unrealized_pnl=0,
+                    margin=margin_needed,
+                    signal_strategy=strategy,
+                    entry_time=datetime.now(timezone.utc).isoformat(),
+                    stop_loss_price=sl,
+                    take_profit_price=tp,
+                    highest_pnl=0,  # 初始盈亏为 0（开仓瞬间）
+                )
+                account.positions.append(position)
+                # 扣减可用余额（模拟保证金占用）
+                account.available_balance = max(0, account.available_balance - margin_needed)
+                logger.info(f"🔵 DRY-RUN 开仓: {side.value.upper()} {symbol} {quantity} @ {price} "
+                           f"(杠杆:{leverage}x, 止损:{sl}, 止盈:{tp}, 保证金:{margin_needed})")
+            else:
+                logger.info(f"🔵 DRY-RUN 开仓信号: {side.value.upper()} {symbol} {quantity} @ {price} "
+                           f"(杠杆:{leverage}x, 止损:{sl}, 止盈:{tp})")
+
             result["status"] = "dry_run_approved"
             result["stop_loss"] = sl
             result["take_profit"] = tp
-            result["margin_needed"] = round(price * quantity / leverage, 4)
-            logger.info(f"🔵 DRY-RUN 开仓: {side.value.upper()} {symbol} {quantity} @ {price} "
-                       f"(杠杆:{leverage}x, 止损:{sl}, 止盈:{tp})")
+            result["margin_needed"] = margin_needed
+            self._record_trade("open", symbol, side.value, quantity, price, strategy, "DRY-RUN")
+
+            # Telegram 通知（DRY-RUN）
+            try:
+                notifier.trade_opened(symbol, side.value, quantity, price,
+                                     leverage, strategy, sl, tp, dry_run=True)
+            except Exception as e:
+                logger.warning(f"通知发送失败: {e}")
+
             return result
 
         try:
@@ -942,6 +982,13 @@ class OrderManager:
 
             logger.info(f"✅ 开仓成功: {side.value.upper()} {symbol} {qty} @ {result['fill_price']}")
 
+            # Telegram 通知
+            try:
+                notifier.trade_opened(symbol, side.value, quantity, result['fill_price'],
+                                     leverage, strategy, sl, tp, dry_run=False)
+            except Exception as e:
+                logger.warning(f"通知发送失败: {e}")
+
             # 3. 设置止损止盈
             sl = self.risk.calc_stop_loss(result["fill_price"], side)
             tp = self.risk.calc_take_profit(result["fill_price"], side)
@@ -963,13 +1010,72 @@ class OrderManager:
             return result
 
     def close_position(self, symbol: str, dry_run: bool = False,
-                       reason: str = "") -> dict:
+                       reason: str = "", account: AccountState = None,
+                       client: BinanceClient = None) -> dict:
         """平仓"""
         result = {"symbol": symbol, "status": "pending", "dry_run": dry_run, "reason": reason}
 
         if dry_run:
-            result["status"] = "dry_run_approved"
-            logger.info(f"🔵 DRY-RUN 平仓: {symbol} (原因: {reason})")
+            # DRY-RUN 模式：模拟完整平仓流程
+            if account is None:
+                result["status"] = "dry_run_approved"
+                logger.info(f"🔵 DRY-RUN 平仓信号: {symbol} (原因: {reason})")
+                self._record_trade("close", symbol, "unknown", 0, 0, reason, "DRY-RUN")
+                return result
+
+            # 查找虚拟持仓
+            pos = None
+            pos_idx = -1
+            for i, p in enumerate(account.positions):
+                if p.symbol == symbol:
+                    pos = p
+                    pos_idx = i
+                    break
+
+            if pos is None:
+                result["status"] = "no_position"
+                logger.info(f"🔵 DRY-RUN 平仓: {symbol} 无虚拟持仓")
+                return result
+
+            # 获取当前市价（模拟平仓成交价）
+            exit_price = pos.mark_price
+            if client is not None and exit_price == 0:
+                try:
+                    price_data = client.ticker_price(symbol)
+                    exit_price = float(price_data.get("price", pos.entry_price))
+                except Exception:
+                    exit_price = pos.entry_price
+
+            # 计算盈亏
+            direction = 1 if pos.side == PositionSide.LONG else -1
+            pnl = (exit_price - pos.entry_price) / pos.entry_price * pos.quantity * pos.leverage * direction
+            pnl_pct = (exit_price - pos.entry_price) / pos.entry_price * 100 * direction
+
+            # 更新账户
+            account.available_balance += pos.margin + pnl  # 返还保证金 + 盈亏
+            account.positions.pop(pos_idx)
+
+            result["status"] = "dry_run_closed"
+            result["fill_price"] = exit_price
+            result["pnl"] = round(pnl, 4)
+            result["pnl_pct"] = round(pnl_pct, 4)
+            result["entry_price"] = pos.entry_price
+
+            emoji = "✅" if pnl > 0 else "❌"
+            logger.info(f"🔵 DRY-RUN {emoji} 平仓: {symbol} {pos.side.value.upper()} "
+                       f"{pos.quantity} @ {exit_price:.4f} "
+                       f"(入场:{pos.entry_price}, 盈亏:{pnl:+.4f} USDT / {pnl_pct:+.2f}%, 原因: {reason})")
+
+            self._record_trade("close", symbol, pos.side.value, pos.quantity,
+                              exit_price, reason, f"DRY-RUN pnl={pnl:+.4f}")
+
+            # Telegram 通知（DRY-RUN）
+            try:
+                notifier.trade_closed(symbol, pos.side.value, pos.quantity,
+                                     pos.entry_price, exit_price, pnl, pnl_pct, reason, dry_run=True)
+            except Exception as e:
+                logger.warning(f"通知发送失败: {e}")
+
             return result
 
         try:
@@ -1008,6 +1114,16 @@ class OrderManager:
                               "long" if pos_amt > 0 else "short", qty,
                               result["fill_price"], reason,
                               f"OK pnl={result['pnl']:.4f}")
+
+            # Telegram 通知
+            try:
+                entry_price = float(pos.get("entryPrice", 0))
+                pnl_pct_val = (result["fill_price"] - entry_price) / entry_price * 100 * (1 if pos_amt > 0 else -1)
+                notifier.trade_closed(symbol, "long" if pos_amt > 0 else "short", qty,
+                                     entry_price, result["fill_price"], result["pnl"], pnl_pct_val,
+                                     reason, dry_run=False)
+            except Exception as e:
+                logger.warning(f"通知发送失败: {e}")
 
             return result
 
@@ -1087,6 +1203,14 @@ class TradingEngine:
         self.last_cycle_time = 0
         self.cycle_interval = 60  # 秒，主循环间隔
 
+        # 风控独立巡检线程
+        self.risk_interval = 15  # 风控检查频率：15 秒
+        self._risk_thread: Optional[threading.Thread] = None
+        self._risk_stop_event = threading.Event()
+
+        # 信号置信度阈值
+        self.min_confidence = 0.7
+
         # 缓存
         self._kline_cache: Dict[str, List[dict]] = {}
         self._last_signal_time: Dict[str, float] = {}
@@ -1096,6 +1220,7 @@ class TradingEngine:
         logger.info(f"  环境: {BINANCE_API_ENV} | 认证: {'✅' if IS_AUTHENTICATED else '⚠️ 未认证(仅公开数据)'}")
         logger.info(f"  监控币种: {[s['symbol'] for s in self.symbols_config]}")
         logger.info(f"  时间框架: {self.config['timeframe']}")
+        logger.info(f"  风控巡检频率: {self.risk_interval}s | 最低信号置信度: {self.min_confidence}")
 
     def _load_config(self) -> dict:
         with open(os.path.join(CONFIG_DIR, "strategies.json")) as f:
@@ -1246,7 +1371,20 @@ class TradingEngine:
             if key not in best_signals or sig.confidence > best_signals[key].confidence:
                 best_signals[key] = sig
 
-        return list(best_signals.values())
+        # 过滤低置信度信号
+        filtered = [s for s in best_signals.values() if s.confidence >= self.min_confidence]
+        low_conf = [s for s in best_signals.values() if s.confidence < self.min_confidence]
+        if low_conf:
+            for s in low_conf:
+                logger.info(f"🔽 {s.symbol} {s.action.value.upper()} 置信度 {s.confidence:.0%} "
+                           f"低于阈值 {self.min_confidence:.0%}，已过滤")
+                try:
+                    notifier.signal_alert(s.symbol, s.action.value, s.strategy,
+                                         s.confidence, s.price)
+                except Exception:
+                    pass
+
+        return filtered
 
     def execute_signal(self, signal: TradeSignal):
         """执行交易信号"""
@@ -1278,7 +1416,9 @@ class TradingEngine:
         for pos in self.account.positions:
             if pos.symbol == symbol and pos.side == PositionSide.SHORT:
                 logger.info(f"🔄 {symbol} 有空仓，先平仓再做多")
-                self.orders.close_position(symbol, self.dry_run, f"反转做多 [{signal.strategy}]")
+                self.orders.close_position(symbol, self.dry_run,
+                                           reason=f"反转做多 [{signal.strategy}]",
+                                           account=self.account, client=self.client)
                 break
 
         # 计算仓位大小
@@ -1291,12 +1431,16 @@ class TradingEngine:
 
         if not ok:
             logger.warning(f"🚫 {symbol} 做多被风控拒绝: {reason}")
+            try:
+                notifier.risk_warning(symbol, f"做多被拒绝: {reason}", level="warning")
+            except Exception:
+                pass
             return
 
         # 执行开仓
         result = self.orders.open_position(
             symbol, PositionSide.LONG, qty, leverage, price,
-            strategy=signal.strategy, dry_run=self.dry_run)
+            strategy=signal.strategy, dry_run=self.dry_run, account=self.account)
 
         if result["status"] in ("opened", "dry_run_approved"):
             logger.info(f"📈 {symbol} 做多已执行: qty={qty}, leverage={leverage}x, "
@@ -1313,7 +1457,9 @@ class TradingEngine:
         for pos in self.account.positions:
             if pos.symbol == symbol and pos.side == PositionSide.LONG:
                 logger.info(f"🔄 {symbol} 有多仓，先平仓再做空")
-                self.orders.close_position(symbol, self.dry_run, f"反转做空 [{signal.strategy}]")
+                self.orders.close_position(symbol, self.dry_run,
+                                           reason=f"反转做空 [{signal.strategy}]",
+                                           account=self.account, client=self.client)
                 break
 
         qty = self.risk.calc_position_size(self.account, price, leverage)
@@ -1324,11 +1470,15 @@ class TradingEngine:
 
         if not ok:
             logger.warning(f"🚫 {symbol} 做空被风控拒绝: {reason}")
+            try:
+                notifier.risk_warning(symbol, f"做空被拒绝: {reason}", level="warning")
+            except Exception:
+                pass
             return
 
         result = self.orders.open_position(
             symbol, PositionSide.SHORT, qty, leverage, price,
-            strategy=signal.strategy, dry_run=self.dry_run)
+            strategy=signal.strategy, dry_run=self.dry_run, account=self.account)
 
         if result["status"] in ("opened", "dry_run_approved"):
             logger.info(f"📉 {symbol} 做空已执行: qty={qty}, leverage={leverage}x, "
@@ -1353,10 +1503,18 @@ class TradingEngine:
             action = self.risk.check_position_risk(pos)
             if action:
                 logger.warning(f"⚠️ {pos.symbol} {action}")
+                # Telegram 风控通知
+                risk_level = "critical" if "STOP_LOSS" in action else "warning"
+                try:
+                    notifier.risk_warning(pos.symbol, action, level=risk_level)
+                except Exception:
+                    pass
                 if "STOP_LOSS" in action or "TRAILING_STOP" in action:
-                    self.orders.close_position(pos.symbol, self.dry_run, reason=action)
+                    self.orders.close_position(pos.symbol, self.dry_run, reason=action,
+                                               account=self.account, client=self.client)
                 elif "TAKE_PROFIT" in action:
-                    self.orders.close_position(pos.symbol, self.dry_run, reason=action)
+                    self.orders.close_position(pos.symbol, self.dry_run, reason=action,
+                                               account=self.account, client=self.client)
 
     # ── 主循环 ──
 
@@ -1372,8 +1530,7 @@ class TradingEngine:
         # 1. 刷新账户
         self.refresh_account()
 
-        # 2. 风控巡检（已有持仓）
-        self.monitor_positions()
+        # 2. 风控巡检已移至独立线程（每 15 秒），此处不再重复
 
         # 3. 检查熔断
         if self.client.is_circuit_broken:
@@ -1416,6 +1573,24 @@ class TradingEngine:
         except Exception as e:
             logger.error(f"保存状态失败: {e}")
 
+    def _risk_monitor_loop(self):
+        """独立风控巡检线程 — 每 risk_interval 秒检查一次持仓风险"""
+        logger.info(f"🛡 风控巡检线程启动（每 {self.risk_interval}s）")
+        while not self._risk_stop_event.is_set():
+            try:
+                if self.account.positions:
+                    # 刷新账户持仓的标记价格
+                    self.refresh_account()
+                    # 执行风控检查
+                    self.monitor_positions()
+                else:
+                    logger.debug("🛡 风控巡检：无持仓，跳过")
+            except Exception as e:
+                logger.error(f"风控巡检异常: {e}")
+            # 等待下一个巡检周期
+            self._risk_stop_event.wait(self.risk_interval)
+        logger.info("🛡 风控巡检线程已停止")
+
     def start(self):
         """启动交易引擎"""
         self.running = True
@@ -1428,12 +1603,17 @@ class TradingEngine:
         def stop_handler(signum, frame):
             logger.info("收到停止信号，正在安全退出...")
             self.running = False
+            self._risk_stop_event.set()  # 停止风控线程
 
         sig.signal(sig.SIGINT, stop_handler)
         sig.signal(sig.SIGTERM, stop_handler)
 
         # 初始账户刷新
         self.refresh_account()
+
+        # 启动独立风控巡检线程
+        self._risk_thread = threading.Thread(target=self._risk_monitor_loop, daemon=True)
+        self._risk_thread.start()
 
         while self.running:
             try:
@@ -1445,6 +1625,11 @@ class TradingEngine:
             wait_time = max(0, self.cycle_interval - (time.time() - self.last_cycle_time))
             if wait_time > 0:
                 time.sleep(wait_time)
+
+        # 停止风控线程
+        self._risk_stop_event.set()
+        if self._risk_thread and self._risk_thread.is_alive():
+            self._risk_thread.join(timeout=5)
 
         logger.info("交易引擎已停止")
 
