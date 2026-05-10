@@ -283,8 +283,9 @@ class BacktestEngine:
     def _open_position(self, signal: TradeSignal, candle: dict, bar_idx: int):
         """模拟开仓"""
         price = candle["close"]
-        position_value = self.equity * self.risk_cfg["position_size_pct"] / 100
-        nominal = position_value * self.leverage
+        # V2: 使用固定保证金（与引擎一致）
+        fixed_margin = self.risk_cfg.get("fixed_margin_usdt", 50)
+        nominal = fixed_margin * self.leverage
         quantity = nominal / price
 
         self.position = Position(

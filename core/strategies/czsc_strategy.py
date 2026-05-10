@@ -218,7 +218,7 @@ def compute_signal_score(analysis: Dict) -> tuple:
 
 def generate_czsc_signal(candles: List[dict], symbol: str = "BTCUSDT",
                           min_confidence: float = 0.5,
-                          candles_1h: List[dict] = None) -> Optional[Dict]:
+                          candles_confirm: List[dict] = None) -> Optional[Dict]:
     """
     生成 CZSC 交易信号（V2 优化版）
 
@@ -231,7 +231,7 @@ def generate_czsc_signal(candles: List[dict], symbol: str = "BTCUSDT",
         candles: 引擎 2min K 线数据
         symbol: 交易对（动态传入，不再硬编码）
         min_confidence: 最小置信度阈值
-        candles_1h: 可选，15m K 线数据用于多级别确认
+        candles_confirm: 可选，15m K 线数据用于多级别确认
 
     Returns:
         信号字典: {"action": "BUY"/"SELL", "confidence": float, "reason": str}
@@ -254,8 +254,8 @@ def generate_czsc_signal(candles: List[dict], symbol: str = "BTCUSDT",
     confirmation_penalty = 0.0
     reasons_15m_confirm = []
 
-    if candles_1h and len(candles_1h) >= 50:
-        analysis_15m_confirm = analyze_czsc_single_level(candles_1h, symbol=symbol, freq=Freq.F15)
+    if candles_confirm and len(candles_confirm) >= 50:
+        analysis_15m_confirm = analyze_czsc_single_level(candles_confirm, symbol=symbol, freq=Freq.F15)
         if analysis_15m_confirm:
             action_15m_c, conf_15m_c, reasons_15m_c_list = compute_signal_score(analysis_15m_confirm)
             if action_15m_c and action_15m_c == action_2m:
@@ -293,7 +293,7 @@ def generate_czsc_signal(candles: List[dict], symbol: str = "BTCUSDT",
     # ── 5. 构建信号 ──
     all_reasons = reasons_2m + reasons_15m_confirm
     bi_count = analysis_2m.get("bi_count", 0)
-    level_info = "2m+15m双级" if candles_1h else "2m单级"
+    level_info = "2m+15m双级" if candles_confirm else "2m单级"
 
     return {
         "action": action_2m,
@@ -305,7 +305,7 @@ def generate_czsc_signal(candles: List[dict], symbol: str = "BTCUSDT",
             "fx_type": analysis_2m.get("fx_type", "未知"),
             "decision_dir": analysis_2m.get("decision_dir", "neutral"),
             "last_bi": analysis_2m.get("last_bi", {}),
-            "confirmation_15m": bool(candles_1h),
+            "confirmation_15m": bool(candles_confirm),
             "confirmation_bonus": confirmation_bonus,
             "confirmation_penalty": confirmation_penalty,
         }

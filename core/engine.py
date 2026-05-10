@@ -390,7 +390,7 @@ class Position:
     entry_time: str = ""
     stop_loss_price: float = 0
     take_profit_price: float = 0
-    highest_pnl: float = -999
+    highest_pnl: float = 0  # 追踪止损用，初始化为0（开仓时 pnl=0）
 
     def pnl_pct(self) -> float:
         if self.entry_price == 0:
@@ -557,10 +557,10 @@ class StrategyEngine:
         return candles
 
     def analyze(self, candles: List[dict], symbol: str = "",
-                candles_1h: List[dict] = None) -> List[TradeSignal]:
+                candles_confirm: List[dict] = None) -> List[TradeSignal]:
         """
         运行所有启用的策略，返回信号列表
-        V2 新增: symbol 传入 + 1h K 线传入（供 CZSC 多级别分析）
+        V2: symbol 传入 + 15m 确认 K 线传入（供 CZSC 多级别分析）
         """
         signals = []
         for name, cfg in self.strategies_cfg.items():
@@ -569,9 +569,9 @@ class StrategyEngine:
             try:
                 sig = getattr(self, f"_strategy_{name}", None)
                 if sig:
-                    # CZSC 策略额外传入 1h K 线
-                    if name == "czsc" and candles_1h:
-                        result = sig(candles, cfg, symbol=symbol, candles_1h=candles_1h)
+                    # CZSC 策略额外传入 15m 确认 K 线
+                    if name == "czsc" and candles_confirm:
+                        result = sig(candles, cfg, symbol=symbol, candles_confirm=candles_confirm)
                     else:
                         result = sig(candles, cfg)
                     if result and result.action != SignalAction.HOLD:
@@ -774,12 +774,12 @@ class StrategyEngine:
 
     # ── 策略 6: CZSC 缠论策略 ──
     def _strategy_czsc(self, candles: List[dict], cfg: dict,
-                        symbol: str = "BTCUSDT", candles_1h: List[dict] = None) -> Optional[TradeSignal]:
+                        symbol: str = "BTCUSDT", candles_confirm: List[dict] = None) -> Optional[TradeSignal]:
         if not CZSC_STRATEGY_AVAILABLE or _czsc_gen_signal is None:
             return None
         try:
             min_conf = cfg.get("min_confidence", 0.65)
-            sig = _czsc_gen_signal(candles, symbol=symbol, min_confidence=min_conf, candles_1h=candles_1h)
+            sig = _czsc_gen_signal(candles, symbol=symbol, min_confidence=min_conf, candles_confirm=candles_confirm)
             if not sig:
                 return None
             action = SignalAction.BUY if sig["action"] == "BUY" else SignalAction.SELL
@@ -1193,11 +1193,15 @@ class TradingEngine:
         """
         import subprocess
         script_path = os.path.join(ROOT, "scripts", "update_symbols_pool.py")
-        env_flag = "--prod" if BINANCE_API_ENV == "prod" else "--testnet"
+        # 注意：脚本 V2 使用 --no-prod 跳过实盘，--dry-run 只输出不写入
+        # 引擎自动更新时使用静默模式
+        cmd_args = [sys.executable, script_path]
+        if BINANCE_API_ENV == "prod":
+            cmd_args.append("--no-prod")  # 实盘环境不跳过
 
         logger.info("🔄 开始每日品种池自动更新...")
         result = subprocess.run(
-            [sys.executable, script_path, env_flag],
+            cmd_args,
             capture_output=True, text=True, timeout=120,
         )
         if result.returncode == 0:
@@ -1349,7 +1353,7 @@ class TradingEngine:
                 continue
 
             # 运行所有策略
-            signals = self.strategy.analyze(candles_2m, symbol=symbol, candles_1h=candles_15m)
+            signals = self.strategy.analyze(candles_2m, symbol=symbol, candles_confirm=candles_15m)
 
             # 记录各策略信号状态
             strategy_names = [n for n, c in self.config.get("strategies", {}).items() if c.get("enabled")]
