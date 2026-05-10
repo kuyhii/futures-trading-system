@@ -60,8 +60,8 @@ def load_env():
 
 load_env()
 
-# ── 通知模块 ──
-from core.notify import notifier
+# ── 中文翻译工具 ──
+from core.notify import notifier, _side_cn, _strategy_cn
 
 # ── K线数据管理器 ──
 from core.kline_manager import KlineManager
@@ -817,11 +817,11 @@ class RiskEngine:
                 return False, f"{symbol} 已有持仓，不可重复开仓"
         if leverage > self.cfg["max_leverage"]:
             return False, f"杠杆 {leverage}x 超过上限 {self.cfg['max_leverage']}x"
-        # V2 修复: 比较保证金（而非名义仓位）
+        # 保证金检查：使用固定保证金配置
         margin_needed_check = price * quantity / leverage
-        max_margin = account.total_equity * self.cfg["position_size_pct"] / 100
-        if margin_needed_check > max_margin:
-            return False, f"保证金 {margin_needed_check:.2f} 超过风险预算 {max_margin:.2f}（名义仓位={price*quantity:.2f}）"
+        fixed_margin = self.cfg.get("fixed_margin_usdt", 50)
+        if margin_needed_check > fixed_margin * 1.01:  # 允许 1% 浮动（精度误差）
+            return False, f"保证金 {margin_needed_check:.2f} 超过固定保证金 {fixed_margin} USDT"
         if self._daily_start_equity > 0:
             daily_pnl_pct = (account.total_equity - self._daily_start_equity) / self._daily_start_equity * 100
             if daily_pnl_pct < -self.cfg["daily_loss_limit_pct"]:
@@ -1131,8 +1131,8 @@ class TradingEngine:
         self._risk_thread: Optional[threading.Thread] = None
         self._risk_stop_event = threading.Event()
 
-        # 信号置信度阈值
-        self.min_confidence = 0.65
+        # 信号置信度阈值（2m K线信号波动大，降低至55%）
+        self.min_confidence = 0.55
 
         self._kline_cache: Dict[str, List[dict]] = {}
         self._last_signal_time: Dict[str, float] = {}
@@ -1388,9 +1388,9 @@ class TradingEngine:
                 # 信号聚合
                 aggregated = self.strategy.aggregate_signals(signals, symbol)
                 if aggregated:
-                    logger.info(f"  {symbol} 聚合信号: {aggregated.action.value.upper()} "
-                               f"(confidence={aggregated.confidence:.0%}, "
-                               f"策略={aggregated.strategy})")
+                    logger.info(f"  {symbol} {_side_cn(aggregated.action.value)} "
+                               f"(置信度={aggregated.confidence:.0%}, "
+                               f"策略={_strategy_cn(aggregated.strategy)})")
                     final_signals.append(aggregated)
                 else:
                     logger.info(f"  {symbol}: 信号聚合后无有效结果")
@@ -1409,15 +1409,13 @@ class TradingEngine:
         # 全局过滤低置信度
         filtered = [s for s in final_signals if s.confidence >= self.min_confidence]
         low_conf = [s for s in final_signals if s.confidence < self.min_confidence]
+        
+        logger.info(f"📊 过滤完成: 通过 {len(filtered)} 个, 过滤 {len(low_conf)} 个")
+        
         if low_conf:
             for s in low_conf:
-                logger.info(f"🔽 {s.symbol} {s.action.value.upper()} 置信度 {s.confidence:.0%} "
+                logger.info(f"🔽 {s.symbol} {_side_cn(s.action.value)} 置信度 {s.confidence:.0%} "
                            f"低于阈值 {self.min_confidence:.0%}，已过滤")
-                try:
-                    notifier.signal_alert(s.symbol, s.action.value, s.strategy,
-                                         s.confidence, s.price)
-                except Exception:
-                    pass
 
         return filtered
 
@@ -1428,8 +1426,10 @@ class TradingEngine:
         now = time.time()
         last = self._last_signal_time.get(symbol, 0)
         if now - last < self.signal_cooldown:
-            logger.info(f"⏳ {symbol} 信号冷却中，跳过")
+            logger.debug(f"⏳ {symbol} 信号冷却中，跳过（{now - last:.0f}s < {self.signal_cooldown}s）")
             return
+
+        logger.info(f"▶️ 执行信号: {symbol} {_side_cn(action.value)} ({_strategy_cn(signal.strategy)}, {signal.confidence:.0%})")
 
         if action == SignalAction.BUY:
             self._handle_buy_signal(signal)
@@ -1545,11 +1545,13 @@ class TradingEngine:
 
         signals = self.process_signals()
 
+        logger.info(f"📊 process_signals 返回: {len(signals)} 个信号")
+
         if signals:
-            logger.info(f"📡 发现 {len(signals)} 个聚合信号:")
+            logger.info(f"📝 发现 {len(signals)} 个聚合信号:")
             for sig in signals:
-                logger.info(f"  {sig.symbol}: {sig.action.value.upper()} "
-                          f"({sig.strategy}, confidence={sig.confidence:.0%})")
+                logger.info(f"  {sig.symbol}: {_side_cn(sig.action.value)} "
+                          f"({_strategy_cn(sig.strategy)}, 置信度={sig.confidence:.0%})")
                 self.execute_signal(sig)
         else:
             logger.info("ℹ️  无交易信号")

@@ -5,7 +5,7 @@
       "name": "Ethereum",
       "enabled": true,
       "priority": 2,
-      "min_volume_24h": 4467948597.0,
+      "min_volume_24h": 6016177835.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
@@ -14,7 +14,7 @@
       "name": "Bitcoin",
       "enabled": true,
       "priority": 1,
-      "min_volume_24h": 4281654544.0,
+      "min_volume_24h": 5498899251.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
@@ -23,7 +23,7 @@
       "name": "Solana",
       "enabled": true,
       "priority": 3,
-      "min_volume_24h": 1671492853.0,
+      "min_volume_24h": 2134729289.0,
       "max_leverage": 3,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
@@ -32,7 +32,7 @@
       "name": "SUI",
       "enabled": true,
       "priority": 102,
-      "min_volume_24h": 857682914.0,
+      "min_volume_24h": 1227323421.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume,top_gainers | 实盘+模拟盘双重验证"
     },
@@ -41,7 +41,7 @@
       "name": "ZEC",
       "enabled": true,
       "priority": 14,
-      "min_volume_24h": 816318372.0,
+      "min_volume_24h": 963673536.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
@@ -50,7 +50,7 @@
       "name": "XRP",
       "enabled": true,
       "priority": 6,
-      "min_volume_24h": 697488347.0,
+      "min_volume_24h": 929551176.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
@@ -59,25 +59,25 @@
       "name": "LAYER",
       "enabled": true,
       "priority": 13,
-      "min_volume_24h": 593872478.0,
+      "min_volume_24h": 608297739.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume,top_gainers | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "DOGEUSDT",
+      "name": "DOGE",
+      "enabled": true,
+      "priority": 2,
+      "min_volume_24h": 569798776.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
       "symbol": "INXUSDT",
       "name": "INX",
       "enabled": true,
       "priority": 11,
-      "min_volume_24h": 576668213.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "LABUSDT",
-      "name": "LAB",
-      "enabled": true,
-      "priority": 20,
-      "min_volume_24h": 482651315.0,
+      "min_volume_24h": 535787568.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
@@ -86,16 +86,16 @@
       "name": "TON",
       "enabled": true,
       "priority": 100,
-      "min_volume_24h": 439260162.0,
+      "min_volume_24h": 446497211.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "DOGEUSDT",
-      "name": "DOGE",
+      "symbol": "LABUSDT",
+      "name": "LAB",
       "enabled": true,
-      "priority": 2,
-      "min_volume_24h": 417144276.0,
+      "priority": 20,
+      "min_volume_24h": 439378062.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
@@ -104,16 +104,7 @@
       "name": "1000PEPE",
       "enabled": true,
       "priority": 290,
-      "min_volume_24h": 297766528.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "UNIUSDT",
-      "name": "UNI",
-      "enabled": true,
-      "priority": 91,
-      "min_volume_24h": 233974350.0,
+      "min_volume_24h": 369112055.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
@@ -122,25 +113,25 @@
       "name": "TAO",
       "enabled": true,
       "priority": 320,
-      "min_volume_24h": 198576283.0,
+      "min_volume_24h": 256103561.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "SAHARAUSDT",
-      "name": "SAHARA",
+      "symbol": "UNIUSDT",
+      "name": "UNI",
       "enabled": true,
-      "priority": 23,
-      "min_volume_24h": 191815584.0,
+      "priority": 91,
+      "min_volume_24h": 254268879.0,
       "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume,top_losers | 实盘+模拟盘双重验证"
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
       "symbol": "HYPEUSDT",
       "name": "HYPE",
       "enabled": true,
       "priority": 492,
-      "min_volume_24h": 181652928.0,
+      "min_volume_24h": 231630692.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
@@ -149,7 +140,7 @@
       "name": "ADA",
       "enabled": true,
       "priority": 186,
-      "min_volume_24h": 172424947.0,
+      "min_volume_24h": 217325053.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
@@ -158,25 +149,7 @@
       "name": "BNB",
       "enabled": true,
       "priority": 4,
-      "min_volume_24h": 168759840.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "QUSDT",
-      "name": "Q",
-      "enabled": true,
-      "priority": 12,
-      "min_volume_24h": 152967890.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "ONDOUSDT",
-      "name": "ONDO",
-      "enabled": true,
-      "priority": 139,
-      "min_volume_24h": 150321424.0,
+      "min_volume_24h": 212516443.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
@@ -185,7 +158,61 @@
       "name": "FIL",
       "enabled": true,
       "priority": 136,
-      "min_volume_24h": 131341134.0,
+      "min_volume_24h": 181119514.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "SAHARAUSDT",
+      "name": "SAHARA",
+      "enabled": true,
+      "priority": 23,
+      "min_volume_24h": 160635281.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "ONDOUSDT",
+      "name": "ONDO",
+      "enabled": true,
+      "priority": 139,
+      "min_volume_24h": 160593731.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "AVAXUSDT",
+      "name": "AVAX",
+      "enabled": true,
+      "priority": 202,
+      "min_volume_24h": 159317462.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "AAVEUSDT",
+      "name": "AAVE",
+      "enabled": true,
+      "priority": 345,
+      "min_volume_24h": 145142116.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "QUSDT",
+      "name": "Q",
+      "enabled": true,
+      "priority": 12,
+      "min_volume_24h": 139154854.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume,top_gainers | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "LINKUSDT",
+      "name": "LINK",
+      "enabled": true,
+      "priority": 272,
+      "min_volume_24h": 137682153.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
@@ -194,70 +221,25 @@
       "name": "1000XEC",
       "enabled": true,
       "priority": 25,
-      "min_volume_24h": 123673089.0,
+      "min_volume_24h": 127365023.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume,top_gainers | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "AVAXUSDT",
-      "name": "AVAX",
-      "enabled": true,
-      "priority": 202,
-      "min_volume_24h": 115645493.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "BIOUSDT",
-      "name": "BIO",
-      "enabled": true,
-      "priority": 30,
-      "min_volume_24h": 113486978.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "RAVEUSDT",
-      "name": "RAVE",
-      "enabled": true,
-      "priority": 35,
-      "min_volume_24h": 104951627.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume,top_losers | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "LINKUSDT",
-      "name": "LINK",
-      "enabled": true,
-      "priority": 272,
-      "min_volume_24h": 104793181.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "PLAYUSDT",
-      "name": "PLAY",
-      "enabled": true,
-      "priority": 16,
-      "min_volume_24h": 103629202.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume,top_losers | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "AAVEUSDT",
-      "name": "AAVE",
-      "enabled": true,
-      "priority": 345,
-      "min_volume_24h": 102733875.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
       "symbol": "WLDUSDT",
       "name": "WLD",
       "enabled": true,
       "priority": 137,
-      "min_volume_24h": 100812656.0,
+      "min_volume_24h": 126735031.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "ENAUSDT",
+      "name": "ENA",
+      "enabled": true,
+      "priority": 166,
+      "min_volume_24h": 114068423.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
@@ -266,133 +248,7 @@
       "name": "ASTER",
       "enabled": true,
       "priority": 366,
-      "min_volume_24h": 94134953.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "币安人生USDT",
-      "name": "币安人生",
-      "enabled": true,
-      "priority": 69,
-      "min_volume_24h": 89101647.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume,top_gainers | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "ENAUSDT",
-      "name": "ENA",
-      "enabled": true,
-      "priority": 166,
-      "min_volume_24h": 88184333.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "SKYAIUSDT",
-      "name": "SKYAI",
-      "enabled": true,
-      "priority": 22,
-      "min_volume_24h": 87443455.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume,top_losers | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "1000LUNCUSDT",
-      "name": "1000LUNC",
-      "enabled": true,
-      "priority": 57,
-      "min_volume_24h": 84146790.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "VVVUSDT",
-      "name": "VVV",
-      "enabled": true,
-      "priority": 80,
-      "min_volume_24h": 72690142.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume,top_losers | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "NEARUSDT",
-      "name": "NEAR",
-      "enabled": true,
-      "priority": 140,
-      "min_volume_24h": 69023960.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "XAUUSDT",
-      "name": "XAU",
-      "enabled": true,
-      "priority": 499,
-      "min_volume_24h": 62995692.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "1000SHIBUSDT",
-      "name": "1000SHIB",
-      "enabled": true,
-      "priority": 264,
-      "min_volume_24h": 61622751.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "WLFIUSDT",
-      "name": "WLFI",
-      "enabled": true,
-      "priority": 220,
-      "min_volume_24h": 61585655.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "LTCUSDT",
-      "name": "LTC",
-      "enabled": true,
-      "priority": 424,
-      "min_volume_24h": 59626142.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "XAGUSDT",
-      "name": "XAG",
-      "enabled": true,
-      "priority": 474,
-      "min_volume_24h": 59509042.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "BASUSDT",
-      "name": "BAS",
-      "enabled": true,
-      "priority": 21,
-      "min_volume_24h": 59116600.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume,top_gainers | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "JASMYUSDT",
-      "name": "JASMY",
-      "enabled": true,
-      "priority": 46,
-      "min_volume_24h": 57306337.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "XLMUSDT",
-      "name": "XLM",
-      "enabled": true,
-      "priority": 395,
-      "min_volume_24h": 55623645.0,
+      "min_volume_24h": 111169005.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
@@ -401,25 +257,70 @@
       "name": "APT",
       "enabled": true,
       "priority": 372,
-      "min_volume_24h": 55481717.0,
+      "min_volume_24h": 108133201.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "DOGSUSDT",
-      "name": "DOGS",
+      "symbol": "PLAYUSDT",
+      "name": "PLAY",
       "enabled": true,
-      "priority": 103,
-      "min_volume_24h": 54634827.0,
+      "priority": 16,
+      "min_volume_24h": 101821366.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume,top_losers | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "SIRENUSDT",
-      "name": "SIREN",
+      "symbol": "NEARUSDT",
+      "name": "NEAR",
       "enabled": true,
-      "priority": 28,
-      "min_volume_24h": 52254500.0,
+      "priority": 140,
+      "min_volume_24h": 99779781.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "币安人生USDT",
+      "name": "币安人生",
+      "enabled": true,
+      "priority": 69,
+      "min_volume_24h": 99463360.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume,top_gainers | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "BIOUSDT",
+      "name": "BIO",
+      "enabled": true,
+      "priority": 30,
+      "min_volume_24h": 95178163.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume,top_losers | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "1000LUNCUSDT",
+      "name": "1000LUNC",
+      "enabled": true,
+      "priority": 57,
+      "min_volume_24h": 92308033.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "XAGUSDT",
+      "name": "XAG",
+      "enabled": true,
+      "priority": 474,
+      "min_volume_24h": 88888073.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "SKYAIUSDT",
+      "name": "SKYAI",
+      "enabled": true,
+      "priority": 22,
+      "min_volume_24h": 86940930.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume,top_losers | 实盘+模拟盘双重验证"
     },
@@ -428,7 +329,16 @@
       "name": "SEI",
       "enabled": true,
       "priority": 304,
-      "min_volume_24h": 51846515.0,
+      "min_volume_24h": 80854613.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume,top_gainers | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "XAUUSDT",
+      "name": "XAU",
+      "enabled": true,
+      "priority": 499,
+      "min_volume_24h": 79418566.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
@@ -437,70 +347,52 @@
       "name": "1000BONK",
       "enabled": true,
       "priority": 359,
-      "min_volume_24h": 51396757.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume,top_gainers | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "QTUMUSDT",
-      "name": "QTUM",
-      "enabled": true,
-      "priority": 75,
-      "min_volume_24h": 48889395.0,
+      "min_volume_24h": 79406481.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "BCHUSDT",
-      "name": "BCH",
+      "symbol": "LTCUSDT",
+      "name": "LTC",
       "enabled": true,
-      "priority": 8,
-      "min_volume_24h": 47927070.0,
+      "priority": 424,
+      "min_volume_24h": 78980782.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "STRKUSDT",
-      "name": "STRK",
+      "symbol": "1000SHIBUSDT",
+      "name": "1000SHIB",
       "enabled": true,
-      "priority": 207,
-      "min_volume_24h": 47841143.0,
+      "priority": 264,
+      "min_volume_24h": 77208363.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "FARTCOINUSDT",
-      "name": "FARTCOIN",
+      "symbol": "RAVEUSDT",
+      "name": "RAVE",
       "enabled": true,
-      "priority": 105,
-      "min_volume_24h": 46601310.0,
+      "priority": 35,
+      "min_volume_24h": 73410205.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume,top_losers | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "VVVUSDT",
+      "name": "VVV",
+      "enabled": true,
+      "priority": 80,
+      "min_volume_24h": 70448866.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "ZEREBROUSDT",
-      "name": "ZEREBRO",
+      "symbol": "XLMUSDT",
+      "name": "XLM",
       "enabled": true,
-      "priority": 26,
-      "min_volume_24h": 44718402.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "DOTUSDT",
-      "name": "DOT",
-      "enabled": true,
-      "priority": 253,
-      "min_volume_24h": 44341378.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "HBARUSDT",
-      "name": "HBAR",
-      "enabled": true,
-      "priority": 398,
-      "min_volume_24h": 44274336.0,
+      "priority": 395,
+      "min_volume_24h": 66585129.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
@@ -509,70 +401,43 @@
       "name": "PENGU",
       "enabled": true,
       "priority": 387,
-      "min_volume_24h": 44220068.0,
+      "min_volume_24h": 64870338.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "DASHUSDT",
-      "name": "DASH",
+      "symbol": "DOTUSDT",
+      "name": "DOT",
       "enabled": true,
-      "priority": 183,
-      "min_volume_24h": 44211245.0,
+      "priority": 253,
+      "min_volume_24h": 64661443.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "MITOUSDT",
-      "name": "MITO",
+      "symbol": "WLFIUSDT",
+      "name": "WLFI",
       "enabled": true,
-      "priority": 18,
-      "min_volume_24h": 43290859.0,
+      "priority": 220,
+      "min_volume_24h": 61402303.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "PTBUSDT",
-      "name": "PTB",
+      "symbol": "BASUSDT",
+      "name": "BAS",
       "enabled": true,
-      "priority": 404,
-      "min_volume_24h": 43286860.0,
+      "priority": 21,
+      "min_volume_24h": 61124798.0,
       "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+      "note": "动态池保留 | 来源: volume,top_gainers | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "ORDIUSDT",
-      "name": "ORDI",
+      "symbol": "BCHUSDT",
+      "name": "BCH",
       "enabled": true,
-      "priority": 214,
-      "min_volume_24h": 42205748.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "TIAUSDT",
-      "name": "TIA",
-      "enabled": true,
-      "priority": 145,
-      "min_volume_24h": 41655119.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "JTOUSDT",
-      "name": "JTO",
-      "enabled": true,
-      "priority": 114,
-      "min_volume_24h": 41636784.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "DYMUSDT",
-      "name": "DYM",
-      "enabled": true,
-      "priority": 24,
-      "min_volume_24h": 41035591.0,
+      "priority": 8,
+      "min_volume_24h": 60897951.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
@@ -581,223 +446,88 @@
       "name": "TRUMP",
       "enabled": true,
       "priority": 305,
-      "min_volume_24h": 40551339.0,
+      "min_volume_24h": 59830076.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "ARBUSDT",
-      "name": "ARB",
+      "symbol": "HBARUSDT",
+      "name": "HBAR",
       "enabled": true,
-      "priority": 198,
-      "min_volume_24h": 38475934.0,
+      "priority": 398,
+      "min_volume_24h": 57625824.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "KITEUSDT",
-      "name": "KITE",
+      "symbol": "DOGSUSDT",
+      "name": "DOGS",
       "enabled": true,
-      "priority": 52,
-      "min_volume_24h": 36733496.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "BANANAUSDT",
-      "name": "BANANA",
-      "enabled": true,
-      "priority": 33,
-      "min_volume_24h": 36416082.0,
+      "priority": 103,
+      "min_volume_24h": 56691290.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume,top_losers | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "UBUSDT",
-      "name": "UB",
+      "symbol": "DASHUSDT",
+      "name": "DASH",
       "enabled": true,
-      "priority": 42,
-      "min_volume_24h": 35950637.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume,top_gainers | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "WALUSDT",
-      "name": "WAL",
-      "enabled": true,
-      "priority": 97,
-      "min_volume_24h": 35039806.0,
+      "priority": 183,
+      "min_volume_24h": 56021892.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "VIRTUALUSDT",
-      "name": "VIRTUAL",
+      "symbol": "FARTCOINUSDT",
+      "name": "FARTCOIN",
       "enabled": true,
-      "priority": 276,
-      "min_volume_24h": 33914878.0,
+      "priority": 105,
+      "min_volume_24h": 55392438.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "ORCAUSDT",
-      "name": "ORCA",
+      "symbol": "SIRENUSDT",
+      "name": "SIREN",
       "enabled": true,
-      "priority": 81,
-      "min_volume_24h": 32848939.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "XPLUSDT",
-      "name": "XPL",
-      "enabled": true,
-      "priority": 154,
-      "min_volume_24h": 32010685.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "TRXUSDT",
-      "name": "TRX",
-      "enabled": true,
-      "priority": 451,
-      "min_volume_24h": 31736950.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "GIGGLEUSDT",
-      "name": "GIGGLE",
-      "enabled": true,
-      "priority": 120,
-      "min_volume_24h": 30790817.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "FETUSDT",
-      "name": "FET",
-      "enabled": true,
-      "priority": 203,
-      "min_volume_24h": 29830135.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "NILUSDT",
-      "name": "NIL",
-      "enabled": true,
-      "priority": 94,
-      "min_volume_24h": 29151762.0,
+      "priority": 28,
+      "min_volume_24h": 52731231.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume,top_losers | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "OPUSDT",
-      "name": "OP",
+      "symbol": "QTUMUSDT",
+      "name": "QTUM",
       "enabled": true,
-      "priority": 222,
-      "min_volume_24h": 28918991.0,
+      "priority": 75,
+      "min_volume_24h": 52222752.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "DEEPUSDT",
-      "name": "DEEP",
+      "symbol": "JASMYUSDT",
+      "name": "JASMY",
       "enabled": true,
-      "priority": 58,
-      "min_volume_24h": 26778871.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume,top_gainers | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "NAORISUSDT",
-      "name": "NAORIS",
-      "enabled": true,
-      "priority": 43,
-      "min_volume_24h": 26573915.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume,top_losers | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "BUSDT",
-      "name": "B",
-      "enabled": true,
-      "priority": 87,
-      "min_volume_24h": 26486082.0,
+      "priority": 46,
+      "min_volume_24h": 49721394.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "WUSDT",
-      "name": "W",
+      "symbol": "TIAUSDT",
+      "name": "TIA",
       "enabled": true,
-      "priority": 71,
-      "min_volume_24h": 25873413.0,
+      "priority": 145,
+      "min_volume_24h": 49190978.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "ETCUSDT",
-      "name": "ETC",
+      "symbol": "ORDIUSDT",
+      "name": "ORDI",
       "enabled": true,
-      "priority": 453,
-      "min_volume_24h": 25628766.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "ATOMUSDT",
-      "name": "ATOM",
-      "enabled": true,
-      "priority": 221,
-      "min_volume_24h": 25563276.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "AGTUSDT",
-      "name": "AGT",
-      "enabled": true,
-      "priority": 19,
-      "min_volume_24h": 24544868.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "ALCHUSDT",
-      "name": "ALCH",
-      "enabled": true,
-      "priority": 470,
-      "min_volume_24h": 22641374.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume,top_gainers | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "FHEUSDT",
-      "name": "FHE",
-      "enabled": true,
-      "priority": 27,
-      "min_volume_24h": 22319074.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume,top_gainers | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "NOTUSDT",
-      "name": "NOT",
-      "enabled": true,
-      "priority": 44,
-      "min_volume_24h": 21279633.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "SONICUSDT",
-      "name": "SONIC",
-      "enabled": true,
-      "priority": 70,
-      "min_volume_24h": 21169930.0,
+      "priority": 214,
+      "min_volume_24h": 48175730.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
@@ -806,34 +536,259 @@
       "name": "WIF",
       "enabled": true,
       "priority": 180,
-      "min_volume_24h": 20940644.0,
+      "min_volume_24h": 47799755.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "XMRUSDT",
-      "name": "XMR",
+      "symbol": "ARBUSDT",
+      "name": "ARB",
       "enabled": true,
-      "priority": 486,
-      "min_volume_24h": 20293228.0,
+      "priority": 198,
+      "min_volume_24h": 45793610.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "MUSDT",
-      "name": "M",
+      "symbol": "JTOUSDT",
+      "name": "JTO",
       "enabled": true,
-      "priority": 122,
-      "min_volume_24h": 20271803.0,
+      "priority": 114,
+      "min_volume_24h": 43280131.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "ALGOUSDT",
-      "name": "ALGO",
+      "symbol": "FETUSDT",
+      "name": "FET",
       "enabled": true,
-      "priority": 213,
-      "min_volume_24h": 20243473.0,
+      "priority": 203,
+      "min_volume_24h": 41793694.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "STRKUSDT",
+      "name": "STRK",
+      "enabled": true,
+      "priority": 207,
+      "min_volume_24h": 41645041.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "DEEPUSDT",
+      "name": "DEEP",
+      "enabled": true,
+      "priority": 58,
+      "min_volume_24h": 40466320.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume,top_gainers | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "ZEREBROUSDT",
+      "name": "ZEREBRO",
+      "enabled": true,
+      "priority": 26,
+      "min_volume_24h": 40465700.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "WALUSDT",
+      "name": "WAL",
+      "enabled": true,
+      "priority": 97,
+      "min_volume_24h": 39242304.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "PTBUSDT",
+      "name": "PTB",
+      "enabled": true,
+      "priority": 404,
+      "min_volume_24h": 38979885.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "VIRTUALUSDT",
+      "name": "VIRTUAL",
+      "enabled": true,
+      "priority": 276,
+      "min_volume_24h": 38241840.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "UBUSDT",
+      "name": "UB",
+      "enabled": true,
+      "priority": 42,
+      "min_volume_24h": 36779865.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume,top_gainers | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "XPLUSDT",
+      "name": "XPL",
+      "enabled": true,
+      "priority": 154,
+      "min_volume_24h": 36466871.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "DYMUSDT",
+      "name": "DYM",
+      "enabled": true,
+      "priority": 24,
+      "min_volume_24h": 36199299.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "GIGGLEUSDT",
+      "name": "GIGGLE",
+      "enabled": true,
+      "priority": 120,
+      "min_volume_24h": 35909591.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "TRXUSDT",
+      "name": "TRX",
+      "enabled": true,
+      "priority": 451,
+      "min_volume_24h": 34355696.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "OPUSDT",
+      "name": "OP",
+      "enabled": true,
+      "priority": 222,
+      "min_volume_24h": 34147388.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "ETCUSDT",
+      "name": "ETC",
+      "enabled": true,
+      "priority": 453,
+      "min_volume_24h": 32667895.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "ALCHUSDT",
+      "name": "ALCH",
+      "enabled": true,
+      "priority": 470,
+      "min_volume_24h": 32453939.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume,top_gainers | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "BANANAUSDT",
+      "name": "BANANA",
+      "enabled": true,
+      "priority": 33,
+      "min_volume_24h": 32131476.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume,top_losers | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "NAORISUSDT",
+      "name": "NAORIS",
+      "enabled": true,
+      "priority": 43,
+      "min_volume_24h": 31167369.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume,top_losers | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "ORCAUSDT",
+      "name": "ORCA",
+      "enabled": true,
+      "priority": 81,
+      "min_volume_24h": 30825084.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "ATOMUSDT",
+      "name": "ATOM",
+      "enabled": true,
+      "priority": 221,
+      "min_volume_24h": 30735713.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "KITEUSDT",
+      "name": "KITE",
+      "enabled": true,
+      "priority": 52,
+      "min_volume_24h": 30434007.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "MITOUSDT",
+      "name": "MITO",
+      "enabled": true,
+      "priority": 18,
+      "min_volume_24h": 30000975.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "BUSDT",
+      "name": "B",
+      "enabled": true,
+      "priority": 87,
+      "min_volume_24h": 29055582.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "WUSDT",
+      "name": "W",
+      "enabled": true,
+      "priority": 71,
+      "min_volume_24h": 28051296.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "NILUSDT",
+      "name": "NIL",
+      "enabled": true,
+      "priority": 94,
+      "min_volume_24h": 27368948.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "FHEUSDT",
+      "name": "FHE",
+      "enabled": true,
+      "priority": 27,
+      "min_volume_24h": 25569478.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume,top_gainers | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "RENDERUSDT",
+      "name": "RENDER",
+      "enabled": true,
+      "priority": 302,
+      "min_volume_24h": 24744719.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
@@ -842,25 +797,25 @@
       "name": "GALA",
       "enabled": true,
       "priority": 129,
-      "min_volume_24h": 20158749.0,
+      "min_volume_24h": 24561279.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "BEATUSDT",
-      "name": "BEAT",
+      "symbol": "AGTUSDT",
+      "name": "AGT",
       "enabled": true,
-      "priority": 45,
-      "min_volume_24h": 20045365.0,
+      "priority": 19,
+      "min_volume_24h": 24520350.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "TRIAUSDT",
-      "name": "TRIA",
+      "symbol": "ALGOUSDT",
+      "name": "ALGO",
       "enabled": true,
-      "priority": 31,
-      "min_volume_24h": 19416729.0,
+      "priority": 213,
+      "min_volume_24h": 23746598.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
@@ -869,34 +824,7 @@
       "name": "CRV",
       "enabled": true,
       "priority": 244,
-      "min_volume_24h": 19392912.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "PENDLEUSDT",
-      "name": "PENDLE",
-      "enabled": true,
-      "priority": 431,
-      "min_volume_24h": 19022288.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "API3USDT",
-      "name": "API3",
-      "enabled": true,
-      "priority": 150,
-      "min_volume_24h": 18276501.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "RENDERUSDT",
-      "name": "RENDER",
-      "enabled": true,
-      "priority": 302,
-      "min_volume_24h": 18242651.0,
+      "min_volume_24h": 23316839.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
@@ -905,52 +833,25 @@
       "name": "MON",
       "enabled": true,
       "priority": 133,
-      "min_volume_24h": 17988825.0,
+      "min_volume_24h": 22665479.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "COLLECTUSDT",
-      "name": "COLLECT",
+      "symbol": "NOTUSDT",
+      "name": "NOT",
       "enabled": true,
-      "priority": 32,
-      "min_volume_24h": 17884787.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "TSTUSDT",
-      "name": "TST",
-      "enabled": true,
-      "priority": 34,
-      "min_volume_24h": 17878830.0,
+      "priority": 44,
+      "min_volume_24h": 22456890.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume,top_losers | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "AEROUSDT",
-      "name": "AERO",
+      "symbol": "PENDLEUSDT",
+      "name": "PENDLE",
       "enabled": true,
-      "priority": 116,
-      "min_volume_24h": 17527113.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "CETUSUSDT",
-      "name": "CETUS",
-      "enabled": true,
-      "priority": 39,
-      "min_volume_24h": 17154305.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "CHZUSDT",
-      "name": "CHZ",
-      "enabled": true,
-      "priority": 218,
-      "min_volume_24h": 16792786.0,
+      "priority": 431,
+      "min_volume_24h": 21852120.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
@@ -959,7 +860,25 @@
       "name": "LDO",
       "enabled": true,
       "priority": 146,
-      "min_volume_24h": 16643943.0,
+      "min_volume_24h": 21810735.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "SONICUSDT",
+      "name": "SONIC",
+      "enabled": true,
+      "priority": 70,
+      "min_volume_24h": 21695533.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "XMRUSDT",
+      "name": "XMR",
+      "enabled": true,
+      "priority": 486,
+      "min_volume_24h": 21244778.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
@@ -968,34 +887,7 @@
       "name": "INJ",
       "enabled": true,
       "priority": 212,
-      "min_volume_24h": 16568570.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "RIVERUSDT",
-      "name": "RIVER",
-      "enabled": true,
-      "priority": 231,
-      "min_volume_24h": 16559639.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "MOVEUSDT",
-      "name": "MOVE",
-      "enabled": true,
-      "priority": 84,
-      "min_volume_24h": 16495685.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "BSVUSDT",
-      "name": "BSV",
-      "enabled": true,
-      "priority": 88,
-      "min_volume_24h": 16349484.0,
+      "min_volume_24h": 20970894.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
@@ -1004,133 +896,79 @@
       "name": "OG",
       "enabled": true,
       "priority": 48,
-      "min_volume_24h": 15562370.0,
+      "min_volume_24h": 20943937.0,
       "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "SUSDT",
-      "name": "S",
-      "enabled": true,
-      "priority": 259,
-      "min_volume_24h": 15420301.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "REZUSDT",
-      "name": "REZ",
-      "enabled": true,
-      "priority": 76,
-      "min_volume_24h": 14311478.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "BABYUSDT",
-      "name": "BABY",
-      "enabled": true,
-      "priority": 38,
-      "min_volume_24h": 14011606.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+      "note": "动态池保留 | 来源: volume,top_gainers | 实盘+模拟盘双重验证"
     },
     {
       "symbol": "ENSUSDT",
       "name": "ENS",
       "enabled": true,
       "priority": 267,
-      "min_volume_24h": 13819383.0,
+      "min_volume_24h": 20772816.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "CRCLUSDT",
-      "name": "CRCL",
+      "symbol": "RIVERUSDT",
+      "name": "RIVER",
       "enabled": true,
-      "priority": 479,
-      "min_volume_24h": 13613755.0,
+      "priority": 231,
+      "min_volume_24h": 20379016.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "ETHFIUSDT",
-      "name": "ETHFI",
+      "symbol": "CHZUSDT",
+      "name": "CHZ",
       "enabled": true,
-      "priority": 316,
-      "min_volume_24h": 13417085.0,
+      "priority": 218,
+      "min_volume_24h": 20250443.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "SANDUSDT",
-      "name": "SAND",
+      "symbol": "BEATUSDT",
+      "name": "BEAT",
       "enabled": true,
-      "priority": 338,
-      "min_volume_24h": 13345983.0,
+      "priority": 45,
+      "min_volume_24h": 20137970.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume,top_gainers | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "MUSDT",
+      "name": "M",
+      "enabled": true,
+      "priority": 122,
+      "min_volume_24h": 19703364.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "IPUSDT",
-      "name": "IP",
+      "symbol": "API3USDT",
+      "name": "API3",
       "enabled": true,
-      "priority": 413,
-      "min_volume_24h": 13336742.0,
+      "priority": 150,
+      "min_volume_24h": 19570007.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "ZROUSDT",
-      "name": "ZRO",
+      "symbol": "CETUSUSDT",
+      "name": "CETUS",
       "enabled": true,
-      "priority": 419,
-      "min_volume_24h": 13237347.0,
+      "priority": 39,
+      "min_volume_24h": 19562245.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "SWARMSUSDT",
-      "name": "SWARMS",
+      "symbol": "TRIAUSDT",
+      "name": "TRIA",
       "enabled": true,
-      "priority": 119,
-      "min_volume_24h": 13081260.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume,top_losers | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "PAXGUSDT",
-      "name": "PAXG",
-      "enabled": true,
-      "priority": 509,
-      "min_volume_24h": 13043692.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "AIAUSDT",
-      "name": "AIA",
-      "enabled": true,
-      "priority": 47,
-      "min_volume_24h": 12707334.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "ERAUSDT",
-      "name": "ERA",
-      "enabled": true,
-      "priority": 78,
-      "min_volume_24h": 12277145.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "MOVRUSDT",
-      "name": "MOVR",
-      "enabled": true,
-      "priority": 65,
-      "min_volume_24h": 12140055.0,
+      "priority": 31,
+      "min_volume_24h": 19305325.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
@@ -1139,70 +977,133 @@
       "name": "ZEN",
       "enabled": true,
       "priority": 427,
-      "min_volume_24h": 11793277.0,
+      "min_volume_24h": 18187850.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "SAGAUSDT",
-      "name": "SAGA",
+      "symbol": "ZROUSDT",
+      "name": "ZRO",
       "enabled": true,
-      "priority": 128,
-      "min_volume_24h": 11781439.0,
-      "max_leverage": 20,
-      "note": "动态池添加 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "AKTUSDT",
-      "name": "AKT",
-      "enabled": true,
-      "priority": 72,
-      "min_volume_24h": 11640110.0,
+      "priority": 419,
+      "min_volume_24h": 17642565.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "HUMAUSDT",
-      "name": "HUMA",
+      "symbol": "MOVEUSDT",
+      "name": "MOVE",
       "enabled": true,
-      "priority": 92,
-      "min_volume_24h": 11607024.0,
+      "priority": 84,
+      "min_volume_24h": 17535534.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "AXSUSDT",
-      "name": "AXS",
+      "symbol": "SANDUSDT",
+      "name": "SAND",
       "enabled": true,
-      "priority": 255,
-      "min_volume_24h": 11477823.0,
+      "priority": 338,
+      "min_volume_24h": 17118165.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "我踏马来了USDT",
-      "name": "我踏马来了",
+      "symbol": "ETHFIUSDT",
+      "name": "ETHFI",
       "enabled": true,
-      "priority": 74,
-      "min_volume_24h": 11410227.0,
+      "priority": 316,
+      "min_volume_24h": 17092264.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "BSVUSDT",
+      "name": "BSV",
+      "enabled": true,
+      "priority": 88,
+      "min_volume_24h": 17021340.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "SUSDT",
+      "name": "S",
+      "enabled": true,
+      "priority": 259,
+      "min_volume_24h": 16963696.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "TSTUSDT",
+      "name": "TST",
+      "enabled": true,
+      "priority": 34,
+      "min_volume_24h": 16784483.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume,top_losers | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "COLLECTUSDT",
+      "name": "COLLECT",
+      "enabled": true,
+      "priority": 32,
+      "min_volume_24h": 16622941.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "AEROUSDT",
+      "name": "AERO",
+      "enabled": true,
+      "priority": 116,
+      "min_volume_24h": 16335056.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "REZUSDT",
+      "name": "REZ",
+      "enabled": true,
+      "priority": 76,
+      "min_volume_24h": 15635037.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "CRCLUSDT",
+      "name": "CRCL",
+      "enabled": true,
+      "priority": 479,
+      "min_volume_24h": 15304964.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "USUSDT",
+      "name": "US",
+      "enabled": true,
+      "priority": 243,
+      "min_volume_24h": 15156603.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume,top_gainers | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "TAGUSDT",
-      "name": "TAG",
+      "symbol": "IPUSDT",
+      "name": "IP",
       "enabled": true,
-      "priority": 41,
-      "min_volume_24h": 11371843.0,
+      "priority": 413,
+      "min_volume_24h": 15012416.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "CAKEUSDT",
-      "name": "CAKE",
+      "symbol": "PAXGUSDT",
+      "name": "PAXG",
       "enabled": true,
-      "priority": 434,
-      "min_volume_24h": 11359696.0,
+      "priority": 509,
+      "min_volume_24h": 14683517.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
@@ -1211,7 +1112,7 @@
       "name": "PIPPIN",
       "enabled": true,
       "priority": 113,
-      "min_volume_24h": 10915282.0,
+      "min_volume_24h": 14289835.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
@@ -1220,34 +1121,151 @@
       "name": "APE",
       "enabled": true,
       "priority": 156,
-      "min_volume_24h": 10910125.0,
+      "min_volume_24h": 14277157.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "HUSDT",
-      "name": "H",
+      "symbol": "BABYUSDT",
+      "name": "BABY",
       "enabled": true,
-      "priority": 260,
-      "min_volume_24h": 10854098.0,
+      "priority": 38,
+      "min_volume_24h": 14086667.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "CAKEUSDT",
+      "name": "CAKE",
+      "enabled": true,
+      "priority": 434,
+      "min_volume_24h": 13779609.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "MOVRUSDT",
+      "name": "MOVR",
+      "enabled": true,
+      "priority": 65,
+      "min_volume_24h": 13604306.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "AXSUSDT",
+      "name": "AXS",
+      "enabled": true,
+      "priority": 255,
+      "min_volume_24h": 13276673.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "SAGAUSDT",
+      "name": "SAGA",
+      "enabled": true,
+      "priority": 128,
+      "min_volume_24h": 13149252.0,
+      "max_leverage": 20,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "我踏马来了USDT",
+      "name": "我踏马来了",
+      "enabled": true,
+      "priority": 74,
+      "min_volume_24h": 13002406.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume,top_gainers | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "PLUMEUSDT",
+      "name": "PLUME",
+      "enabled": true,
+      "priority": 132,
+      "min_volume_24h": 12994264.0,
+      "max_leverage": 20,
+      "note": "动态池添加 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "EIGENUSDT",
+      "name": "EIGEN",
+      "enabled": true,
+      "priority": 133,
+      "min_volume_24h": 12872919.0,
+      "max_leverage": 20,
+      "note": "动态池添加 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "1000FLOKIUSDT",
+      "name": "1000FLOKI",
+      "enabled": true,
+      "priority": 134,
+      "min_volume_24h": 12688871.0,
+      "max_leverage": 20,
+      "note": "动态池添加 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "ERAUSDT",
+      "name": "ERA",
+      "enabled": true,
+      "priority": 78,
+      "min_volume_24h": 12688586.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "AKTUSDT",
+      "name": "AKT",
+      "enabled": true,
+      "priority": 72,
+      "min_volume_24h": 12535869.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "AIAUSDT",
+      "name": "AIA",
+      "enabled": true,
+      "priority": 47,
+      "min_volume_24h": 12402688.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "HUMAUSDT",
+      "name": "HUMA",
+      "enabled": true,
+      "priority": 92,
+      "min_volume_24h": 12241675.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "POLUSDT",
+      "name": "POL",
+      "enabled": true,
+      "priority": 139,
+      "min_volume_24h": 12209016.0,
+      "max_leverage": 20,
+      "note": "动态池添加 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "SWARMSUSDT",
+      "name": "SWARMS",
+      "enabled": true,
+      "priority": 119,
+      "min_volume_24h": 12072883.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume,top_losers | 实盘+模拟盘双重验证"
     },
     {
       "symbol": "BERAUSDT",
       "name": "BERA",
       "enabled": true,
       "priority": 467,
-      "min_volume_24h": 10670703.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "EGLDUSDT",
-      "name": "EGLD",
-      "enabled": true,
-      "priority": 187,
-      "min_volume_24h": 10602912.0,
+      "min_volume_24h": 12072800.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
@@ -1256,34 +1274,7 @@
       "name": "INTC",
       "enabled": true,
       "priority": 487,
-      "min_volume_24h": 10584687.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "LUMIAUSDT",
-      "name": "LUMIA",
-      "enabled": true,
-      "priority": 40,
-      "min_volume_24h": 10570330.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "BRETTUSDT",
-      "name": "BRETT",
-      "enabled": true,
-      "priority": 50,
-      "min_volume_24h": 10231507.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "SUSHIUSDT",
-      "name": "SUSHI",
-      "enabled": true,
-      "priority": 117,
-      "min_volume_24h": 10197656.0,
+      "min_volume_24h": 11762464.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
@@ -1292,7 +1283,88 @@
       "name": "AR",
       "enabled": true,
       "priority": 141,
-      "min_volume_24h": 10117304.0,
+      "min_volume_24h": 11699481.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "TAGUSDT",
+      "name": "TAG",
+      "enabled": true,
+      "priority": 41,
+      "min_volume_24h": 11524671.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "SPXUSDT",
+      "name": "SPX",
+      "enabled": true,
+      "priority": 145,
+      "min_volume_24h": 11292604.0,
+      "max_leverage": 20,
+      "note": "动态池添加 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "EGLDUSDT",
+      "name": "EGLD",
+      "enabled": true,
+      "priority": 187,
+      "min_volume_24h": 11178507.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "PNUTUSDT",
+      "name": "PNUT",
+      "enabled": true,
+      "priority": 147,
+      "min_volume_24h": 10833688.0,
+      "max_leverage": 20,
+      "note": "动态池添加 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "USELESSUSDT",
+      "name": "USELESS",
+      "enabled": true,
+      "priority": 278,
+      "min_volume_24h": 10826767.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "SUSHIUSDT",
+      "name": "SUSHI",
+      "enabled": true,
+      "priority": 117,
+      "min_volume_24h": 10755853.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "BOMEUSDT",
+      "name": "BOME",
+      "enabled": true,
+      "priority": 150,
+      "min_volume_24h": 10749696.0,
+      "max_leverage": 20,
+      "note": "动态池添加 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "NEIROUSDT",
+      "name": "NEIRO",
+      "enabled": true,
+      "priority": 151,
+      "min_volume_24h": 10707164.0,
+      "max_leverage": 20,
+      "note": "动态池添加 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "BRETTUSDT",
+      "name": "BRETT",
+      "enabled": true,
+      "priority": 50,
+      "min_volume_24h": 10428900.0,
       "max_leverage": 5,
       "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
     },
@@ -1301,103 +1373,85 @@
       "name": "4",
       "enabled": true,
       "priority": 54,
-      "min_volume_24h": 8924295.0,
+      "min_volume_24h": 10361121.0,
       "max_leverage": 5,
-      "note": "动态池保留 | 来源: top_gainers | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "STGUSDT",
-      "name": "STG",
-      "enabled": true,
-      "priority": 63,
-      "min_volume_24h": 8130259.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: top_losers | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "USELESSUSDT",
-      "name": "USELESS",
-      "enabled": true,
-      "priority": 278,
-      "min_volume_24h": 7382342.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: top_gainers | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "GRTUSDT",
-      "name": "GRT",
-      "enabled": true,
-      "priority": 240,
-      "min_volume_24h": 7338381.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: top_gainers | 实盘+模拟盘双重验证"
+      "note": "动态池保留 | 来源: volume,top_gainers | 实盘+模拟盘双重验证"
     },
     {
       "symbol": "HAEDALUSDT",
       "name": "HAEDAL",
       "enabled": true,
       "priority": 149,
-      "min_volume_24h": 6847874.0,
+      "min_volume_24h": 10235102.0,
+      "max_leverage": 20,
+      "note": "动态池保留 | 来源: volume,top_gainers | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "HUSDT",
+      "name": "H",
+      "enabled": true,
+      "priority": 260,
+      "min_volume_24h": 10103095.0,
+      "max_leverage": 5,
+      "note": "动态池保留 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "PARTIUSDT",
+      "name": "PARTI",
+      "enabled": true,
+      "priority": 156,
+      "min_volume_24h": 10039014.0,
+      "max_leverage": 20,
+      "note": "动态池添加 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "PYTHUSDT",
+      "name": "PYTH",
+      "enabled": true,
+      "priority": 157,
+      "min_volume_24h": 10022069.0,
+      "max_leverage": 20,
+      "note": "动态池添加 | 来源: volume | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "DUSKUSDT",
+      "name": "DUSK",
+      "enabled": true,
+      "priority": 158,
+      "min_volume_24h": 5151915.0,
+      "max_leverage": 20,
+      "note": "动态池添加 | 来源: top_losers | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "JELLYJELLYUSDT",
+      "name": "JELLYJELLY",
+      "enabled": true,
+      "priority": 159,
+      "min_volume_24h": 3141486.0,
       "max_leverage": 20,
       "note": "动态池添加 | 来源: top_gainers | 实盘+模拟盘双重验证"
     },
     {
-      "symbol": "POPCATUSDT",
-      "name": "POPCAT",
+      "symbol": "FIGHTUSDT",
+      "name": "FIGHT",
       "enabled": true,
-      "priority": 194,
-      "min_volume_24h": 6575941.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: top_gainers | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "BLESSUSDT",
-      "name": "BLESS",
-      "enabled": true,
-      "priority": 176,
-      "min_volume_24h": 4672747.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: top_losers | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "USUSDT",
-      "name": "US",
-      "enabled": true,
-      "priority": 243,
-      "min_volume_24h": 3940165.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: top_gainers | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "CHILLGUYUSDT",
-      "name": "CHILLGUY",
-      "enabled": true,
-      "priority": 60,
-      "min_volume_24h": 3685342.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: top_gainers | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "1000000MOGUSDT",
-      "name": "1000000MOG",
-      "enabled": true,
-      "priority": 77,
-      "min_volume_24h": 3548955.0,
-      "max_leverage": 5,
-      "note": "动态池保留 | 来源: top_gainers | 实盘+模拟盘双重验证"
-    },
-    {
-      "symbol": "XNYUSDT",
-      "name": "XNY",
-      "enabled": true,
-      "priority": 155,
-      "min_volume_24h": 1928461.0,
+      "priority": 160,
+      "min_volume_24h": 2312674.0,
       "max_leverage": 20,
       "note": "动态池添加 | 来源: top_losers | 实盘+模拟盘双重验证"
+    },
+    {
+      "symbol": "BROCCOLIF3BUSDT",
+      "name": "BROCCOLIF3B",
+      "enabled": true,
+      "priority": 161,
+      "min_volume_24h": 1595612.0,
+      "max_leverage": 20,
+      "note": "动态池添加 | 来源: top_gainers | 实盘+模拟盘双重验证"
     }
   ],
-  "updated_at": "2026-05-10T18:32:36.352885+00:00",
-  "total_symbols": 155,
+  "updated_at": "2026-05-10T21:28:33.646592+00:00",
+  "total_symbols": 161,
   "update_method": "dual_verify_pool_prod_testnet",
   "note": "动态交易品种池V2：实盘+模拟盘双重验证，每日自动更新。实盘成交额>1000万U ∪ 涨幅前20 ∪ 跌幅前20，与模拟盘取交集"
 }
