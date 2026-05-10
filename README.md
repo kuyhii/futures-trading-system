@@ -9,7 +9,7 @@
 - **加权投票信号聚合**: 多策略同时分析，一致信号自动加成，冲突信号加权决断
 - **策略隔离保护**: 单策略连续错误自动禁用，不影响其他策略
 - **全闭环自动化**: 数据采集 → 策略计算 → 风控审核 → 自动下单 → 通知推送
-- **动态交易品种池**: 每日自动筛选（前日成交额>1000万U ∪ 涨幅前20 ∪ 跌幅前20）
+- **动态交易品种池 V2**: 实盘+模拟盘双重验证，每日自动筛选。实盘成交额>1000万U ∪ 涨幅前20 ∪ 跌幅前20，与模拟盘取交集（模拟盘涨幅/跌幅取前35）
 - **风控体系**: 止损/止盈/追踪止损、仓位管理、回撤限制、熔断机制、保证金检查
 - **双级别分析**: 2m 主信号 + 15m 级别确认（CZSC缠论）
 - **通知推送**: Telegram 实时推送开仓/平仓/风控警告/每日报告
@@ -40,8 +40,10 @@ futures-trading-system/
 │       ├── mean_reversion.py# 均值回归
 │       ├── breakout.py      # 突破策略
 │       └── czsc_strategy.py # CZSC缠论策略
+├── secrets/                 # 🔒 API 密钥（.gitignore 排除，永不提交）
+│   └── api_keys.env         # 实盘+模拟盘 API Key 专用文件
 ├── scripts/
-│   ├── update_symbols_pool.py  # 动态品种池筛选脚本（每日执行）
+│   ├── update_symbols_pool.py  # 动态品种池筛选脚本 V2（双重验证）
 │   ├── strategy_engine.py      # 独立策略计算
 │   ├── daily_report.py         # 每日报告
 │   └── orchestrator.py         # 调度器
@@ -156,24 +158,51 @@ python3 scripts/update_symbols_pool.py   # 手动筛选
 
 ## 🔧 配置币安 API
 
+### API 密钥管理
+
+> 🔒 **所有 API 密钥统一存放在 `secrets/api_keys.env` 文件中**
+> - 此文件已被 `.gitignore` 永久排除，**绝不提交到 Git**
+> - 其他工具/脚本只通过读取此文件调用 API，不硬编码密钥
+> - 修改前请备份：`cp secrets/api_keys.env secrets/api_keys.env.bak.日期`
+
+```bash
+# 编辑密钥文件
+nano secrets/api_keys.env
+
+# 填入以下信息：
+# BINANCE_PROD_API_KEY=<实盘 API Key>
+# BINANCE_PROD_SECRET_KEY=<实盘 Secret Key>
+# BINANCE_TESTNET_API_KEY=<模拟盘 API Key>
+# BINANCE_TESTNET_SECRET_KEY=<模拟盘 Secret Key>
+# TELEGRAM_BOT_TOKEN=<Bot Token>
+# TELEGRAM_CHAT_ID=<Chat ID>
+```
+
+### 获取 API Key
+
 1. 登录 [币安](https://www.binance.com)
 2. 进入 API 管理
 3. 创建新 API Key
 4. **仅开启「合约交易」权限**（❌ 不要开提现权限）
 5. 绑定 IP 白名单（推荐）
-6. 填入 `.env` 文件
 
 ### 测试网
 - 测试网地址: https://testnet.binancefuture.com
+
+### ⚠️ 当前阶段说明（测试系统）
+> 当前为测试系统，使用 testnet 测试网环境。
+> 品种筛选采用「实盘+模拟盘双重验证」：模拟盘未上线的币种即使实盘热门也不纳入。
+> **后期切换实盘时**，需修改筛选逻辑，取消模拟盘验证要求。
 
 ## 🔒 安全注意事项
 
 1. **API 权限**: 仅开启合约交易，绝不开启提现
 2. **IP 白名单**: 务必绑定服务器 IP
-3. **密钥管理**: 存入 `.env`，**.gitignore 已排除，绝不提交到 Git**
+3. **密钥管理**: 所有密钥存入 `secrets/api_keys.env`，**.gitignore 已排除，绝不提交到 Git**
 4. **Dry-Run 优先**: 先模拟验证，再小资金实盘
 5. **紧急停止**: `Ctrl+C` 停止引擎
 6. **日志审计**: 所有操作记录在 `logs/` 目录
+7. **每次 git push 前**: 必须确认 .gitignore 配置完整，隐私文件不会泄露
 
 ## 📈 更新日志
 
