@@ -5,7 +5,7 @@ core/strategies/czsc_strategy.py - CZSC 缠论策略模块（V2 优化版）
 
 V2 优化:
   - 支持多币种（symbol 由引擎动态传入，不再硬编码）
-  - 新增多级别确认（15min 信号 + 1h 级别确认）
+  - 新增多级别确认（2min 信号 + 15m 级别确认）
   - 置信度校准（与其他策略在同一量级 0.5-0.95）
   - 交易频率限制（防止缠论信号过度频繁）
   - 降级机制（CZSC 不可用时优雅降级）
@@ -31,7 +31,7 @@ _signal_history: Dict[str, List[float]] = {}  # symbol -> [timestamps]
 MAX_SIGNALS_PER_HOUR = 2  # 每小时最多发出 N 个 CZSC 信号
 
 
-def convert_candles_to_raw_bars(candles: List[dict], freq: Freq = Freq.F15,
+def convert_candles_to_raw_bars(candles: List[dict], freq: Freq = Freq.F2,
                                  symbol: str = "BTCUSDT") -> List[RawBar]:
     """将引擎 K 线转换为 CZSC RawBar"""
     raw_bars = []
@@ -52,7 +52,7 @@ def convert_candles_to_raw_bars(candles: List[dict], freq: Freq = Freq.F15,
 
 
 def analyze_czsc_single_level(candles: List[dict], symbol: str = "BTCUSDT",
-                               freq: Freq = Freq.F15) -> Optional[Dict]:
+                               freq: Freq = Freq.F2) -> Optional[Dict]:
     """单级别 CZSC 分析（被多级别分析调用）"""
     if not CZSC_AVAILABLE:
         return None
@@ -223,15 +223,15 @@ def generate_czsc_signal(candles: List[dict], symbol: str = "BTCUSDT",
     生成 CZSC 交易信号（V2 优化版）
 
     多级别分析逻辑:
-      1. 15min 级别生成初始信号
-      2. 如果提供 1h K 线 → 1h 级别确认 → 提升/降低置信度
+      1. 2min 级别生成初始信号
+      2. 如果提供 15m K 线 → 15m 级别确认 → 提升/降低置信度
       3. 检查交易频率限制
 
     Args:
-        candles: 引擎 15min K 线数据
+        candles: 引擎 2min K 线数据
         symbol: 交易对（动态传入，不再硬编码）
         min_confidence: 最小置信度阈值
-        candles_1h: 可选，1h K 线数据用于多级别确认
+        candles_1h: 可选，15m K 线数据用于多级别确认
 
     Returns:
         信号字典: {"action": "BUY"/"SELL", "confidence": float, "reason": str}
@@ -240,37 +240,37 @@ def generate_czsc_signal(candles: List[dict], symbol: str = "BTCUSDT",
         logger.debug(f"CZSC 不可用({symbol})，跳过")
         return None
 
-    # ── 1. 15min 级别分析 ──
-    analysis_15m = analyze_czsc_single_level(candles, symbol=symbol, freq=Freq.F15)
-    if not analysis_15m:
+    # ── 1. 2min 级别分析 ──
+    analysis_2m = analyze_czsc_single_level(candles, symbol=symbol, freq=Freq.F2)
+    if not analysis_2m:
         return None
 
-    action_15m, conf_15m, reasons_15m = compute_signal_score(analysis_15m)
-    if not action_15m:
+    action_2m, conf_2m, reasons_2m = compute_signal_score(analysis_2m)
+    if not action_2m:
         return None
 
-    # ── 2. 1h 级别确认（如果提供） ──
+    # ── 2. 15m 级别确认（如果提供） ──
     confirmation_bonus = 0.0
     confirmation_penalty = 0.0
-    reasons_1h = []
+    reasons_15m_confirm = []
 
     if candles_1h and len(candles_1h) >= 50:
-        analysis_1h = analyze_czsc_single_level(candles_1h, symbol=symbol, freq=Freq.F1H)
-        if analysis_1h:
-            action_1h, conf_1h, reasons_1h_list = compute_signal_score(analysis_1h)
-            if action_1h and action_1h == action_15m:
+        analysis_15m_confirm = analyze_czsc_single_level(candles_1h, symbol=symbol, freq=Freq.F15)
+        if analysis_15m_confirm:
+            action_15m_c, conf_15m_c, reasons_15m_c_list = compute_signal_score(analysis_15m_confirm)
+            if action_15m_c and action_15m_c == action_2m:
                 # 多级别一致 → 提升置信度
                 confirmation_bonus = 0.15
-                reasons_1h = [f"1h确认{'做多' if action_1h == 'BUY' else '做空'}"]
-            elif action_1h and action_1h != action_15m:
+                reasons_15m_confirm = [f"15m确认{'做多' if action_15m_c == 'BUY' else '做空'}"]
+            elif action_15m_c and action_15m_c != action_2m:
                 # 多级别冲突 → 降低置信度
                 confirmation_penalty = 0.20
-                reasons_1h = ["1h级别冲突"]
+                reasons_15m_confirm = ["15m级别冲突"]
             else:
-                reasons_1h = ["1h无明确信号"]
+                reasons_15m_confirm = ["15m无明确信号"]
 
     # ── 3. 最终置信度 ──
-    final_confidence = conf_15m + confirmation_bonus - confirmation_penalty
+    final_confidence = conf_2m + confirmation_bonus - confirmation_penalty
     # 校准到 0.5-0.95 范围（与其他策略同一量级）
     final_confidence = max(0.5, min(0.95, final_confidence))
 
@@ -291,21 +291,21 @@ def generate_czsc_signal(candles: List[dict], symbol: str = "BTCUSDT",
     _signal_history[symbol].append(now)
 
     # ── 5. 构建信号 ──
-    all_reasons = reasons_15m + reasons_1h
-    bi_count = analysis_15m.get("bi_count", 0)
-    level_info = "15m+1h双级" if candles_1h else "15m单级"
+    all_reasons = reasons_2m + reasons_15m_confirm
+    bi_count = analysis_2m.get("bi_count", 0)
+    level_info = "2m+15m双级" if candles_1h else "2m单级"
 
     return {
-        "action": action_15m,
+        "action": action_2m,
         "confidence": round(final_confidence, 2),
         "reason": f"CZSC缠论({level_info}): {'，'.join(all_reasons)} (笔数={bi_count})",
         "czsc_details": {
-            "bi_direction": analysis_15m.get("bi_direction", "neutral"),
-            "trend_bias": analysis_15m.get("trend_bias", "neutral"),
-            "fx_type": analysis_15m.get("fx_type", "未知"),
-            "decision_dir": analysis_15m.get("decision_dir", "neutral"),
-            "last_bi": analysis_15m.get("last_bi", {}),
-            "confirmation_1h": bool(candles_1h),
+            "bi_direction": analysis_2m.get("bi_direction", "neutral"),
+            "trend_bias": analysis_2m.get("trend_bias", "neutral"),
+            "fx_type": analysis_2m.get("fx_type", "未知"),
+            "decision_dir": analysis_2m.get("decision_dir", "neutral"),
+            "last_bi": analysis_2m.get("last_bi", {}),
+            "confirmation_15m": bool(candles_1h),
             "confirmation_bonus": confirmation_bonus,
             "confirmation_penalty": confirmation_penalty,
         }

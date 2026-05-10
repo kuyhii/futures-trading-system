@@ -1,6 +1,6 @@
 {
-  "max_leverage": 5,
-  "position_size_pct": 10,
+  "max_leverage": 20,
+  "fixed_margin_usdt": 50,
   "stop_loss_pct": 2,
   "take_profit_pct": 4,
   "max_positions": 3,
@@ -14,7 +14,7 @@
   "risk_rules": {
     "single_stop_loss": {
       "enabled": true,
-      "description": "单笔亏损不超过本金 2%"
+      "description": "单笔亏损不超过保证金 2%"
     },
     "single_take_profit": {
       "enabled": true,

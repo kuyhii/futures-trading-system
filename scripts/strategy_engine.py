@@ -375,7 +375,7 @@ def main():
     if active_signals:
         log(f"🚨 发现 {len(active_signals)} 个活跃信号:")
         for sig in active_signals:
-            log(f"  {sig['type']}: {sig['action'].upper()} (confidence: {sig['confidence']})")
+            log(f"  {sig['type']}: {sig['action'].upper()} (置信度: {sig['confidence']})")
     else:
         log("ℹ️  无活跃交易信号")
 

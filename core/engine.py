@@ -186,7 +186,7 @@ class BinanceClient:
                 return resp.json()
 
             except requests.exceptions.Timeout:
-                logger.warning(f"请求超时 (attempt {attempt + 1})")
+                logger.warning(f"⏳ 请求超时 (第 {attempt + 1} 次重试)")
                 if attempt < retries - 1:
                     time.sleep(1)
                     continue
@@ -201,7 +201,7 @@ class BinanceClient:
         return {"error": "max retries exceeded"}
 
     # ── 公开接口 ──
-    def klines(self, symbol: str, interval: str = "15m", limit: int = 100) -> List:
+    def klines(self, symbol: str, interval: str = "2m", limit: int = 100) -> List:
         return self._request("GET", "/fapi/v1/klines", {
             "symbol": symbol, "interval": interval, "limit": limit
         })
@@ -668,7 +668,7 @@ class StrategyEngine:
 
     def _make_signal(self, action: SignalAction, strategy: str,
                      confidence: float, price: float, details: dict,
-                     timeframe: str = "15m", symbol: str = "") -> TradeSignal:
+                     timeframe: str = "2m", symbol: str = "") -> TradeSignal:
         return TradeSignal(
             symbol=symbol, action=action, strategy=strategy, confidence=confidence,
             price=price, timeframe=timeframe, details=details
@@ -873,20 +873,15 @@ class RiskEngine:
     def calc_position_size(self, account: AccountState, price: float,
                            leverage: int, risk_pct: float = None) -> float:
         """
-        基于账户余额和风控计算开仓数量
-        V2 修复: position_size_pct 控制的是风险敞口（保证金），不是名义仓位
-        公式: quantity = (equity * risk_pct% / leverage) / price
-        这样 position_value = quantity * price = equity * risk_pct% / leverage
-        保证金 = position_value * 1/leverage = equity * risk_pct% / leverage²
-        简化: quantity = equity * risk_pct% / price / leverage 的倒数
-        实际: 保证金 = equity * risk_pct%, 名义仓位 = 保证金 * leverage
+        基于固定保证金计算开仓数量
+        皇上旨意：统一下单保证金为 50 USDT
+        公式: 名义仓位 = 固定保证金 × 杠杆
+              数量 = 名义仓位 / 价格
         """
-        if risk_pct is None:
-            risk_pct = self.cfg["position_size_pct"]
-        # 保证金 = equity * risk_pct%
-        margin = account.total_equity * risk_pct / 100
-        # 名义仓位 = 保证金 * 杠杆
-        nominal = margin * leverage
+        # 固定保证金 50 USDT
+        fixed_margin = self.cfg.get("fixed_margin_usdt", 50)
+        # 名义仓位 = 保证金 × 杠杆
+        nominal = fixed_margin * leverage
         # 数量 = 名义仓位 / 价格
         quantity = nominal / price
         return quantity
@@ -1146,7 +1141,7 @@ class TradingEngine:
         self._strategy_status: Dict[str, dict] = {}
 
         logger.info(f"🚀 交易引擎 V2 初始化 {'[DRY-RUN 模拟模式]' if dry_run else '[实盘模式]'}")
-        logger.info(f"  环境: {BINANCE_API_ENV} | 认证: {'✅' if IS_AUTHENTICATED else '⚠️ 未认证'}")
+        logger.info(f"  环境: {BINANCE_API_ENV} | 认证: {'✅ 已认证' if IS_AUTHENTICATED else '⚠️ 未认证'}")
         logger.info(f"  监控币种: {[s['symbol'] for s in self.symbols_config]}")
         logger.info(f"  时间框架: {self.config['timeframe']}")
         logger.info(f"  活跃策略: {self.config.get('active', [])}")
@@ -1286,7 +1281,7 @@ class TradingEngine:
     def process_signals(self) -> List[TradeSignal]:
         """
         V2 信号处理:
-          1. 每个币种获取 15m + 1h K 线
+          1. 每个币种获取 2m + 15m K 线
           2. 所有策略运行（CZSC 接收双级别数据）
           3. 信号聚合（加权投票 + 冲突检测）
           4. 过滤低置信度
@@ -1297,16 +1292,16 @@ class TradingEngine:
             symbol = sym_cfg["symbol"]
             logger.info(f"📡 分析 {symbol}...")
 
-            # 获取 15m 和 1h K 线
+            # 获取 2m 和 15m K 线
+            candles_2m = self.fetch_klines(symbol, "2m")
             candles_15m = self.fetch_klines(symbol, "15m")
-            candles_1h = self.fetch_klines(symbol, "1h")
 
-            if not candles_15m:
-                logger.warning(f"  {symbol}: 15m K 线数据为空，跳过")
+            if not candles_2m:
+                logger.warning(f"  {symbol}: 2m K 线数据为空，跳过")
                 continue
 
             # 运行所有策略
-            signals = self.strategy.analyze(candles_15m, symbol=symbol, candles_1h=candles_1h)
+            signals = self.strategy.analyze(candles_2m, symbol=symbol, candles_1h=candles_15m)
 
             # 记录各策略信号状态
             strategy_names = [n for n, c in self.config.get("strategies", {}).items() if c.get("enabled")]
@@ -1569,7 +1564,7 @@ class TradingEngine:
         print(f"{'='*50}")
         print(f"模式: {'DRY-RUN 模拟' if self.dry_run else '实盘'}")
         print(f"环境: {BINANCE_API_ENV}")
-        print(f"认证: {'✅' if IS_AUTHENTICATED else '⚠️ 未认证'}")
+        print(f"认证: {'✅ 已认证' if IS_AUTHENTICATED else '⚠️ 未认证'}")
         print(f"周期数: {self.cycle_count}")
         print(f"熔断: {'🚨 是' if self.client.circuit_breaker else '✅ 否'}")
         print(f"总权益: {self.account.total_equity:.2f} USDT")
@@ -1614,10 +1609,10 @@ def main():
         return
 
     if args.live:
-        print(f"\n🚨 即将进入 REAL TRADING 模式！")
+        print(f"\n🚨 即将进入实盘交易模式！")
         print(f"   环境: {BINANCE_API_ENV}")
         print(f"   所有操作将真实下单！")
-        print(f"\n如需继续，请在 10 秒内 Ctrl+C 取消...")
+        print(f"\n如需取消，请在 10 秒内 Ctrl+C...")
         try:
             time.sleep(10)
         except KeyboardInterrupt:

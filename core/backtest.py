@@ -437,7 +437,7 @@ def print_report(result: BacktestResult):
 
     if result.trades:
         print(f"  交易明细 (前 10 笔):")
-        print(f"  {'#':<4} {'方向':<4} {'入场价':>12} {'出场价':>12} {'盈亏%':>8} {'盈亏':>10}")
+        print(f"  {'序号':<4} {'方向':<4} {'入场价':>12} {'出场价':>12} {'盈亏%':>8} {'盈亏':>10}")
         print(f"  {'-'*55}")
         for i, t in enumerate(result.trades[:10]):
             emoji = "✅" if t.pnl > 0 else "❌"
