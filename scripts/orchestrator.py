@@ -40,16 +40,10 @@ load_env()
 
 # 环境标识确认
 BINANCE_API_ENV = os.environ.get("BINANCE_API_ENV", "testnet")
-BINANCE_API_KEY = os.environ.get("BINANCE_API_KEY", "")
-
-# 实盘环境切换：如果 BINANCE_API_ENV=prod 且有独立的 prod key，则覆盖
 if BINANCE_API_ENV == "prod":
-    prod_key = os.environ.get("BINANCE_PROD_API_KEY", "")
-    prod_secret = os.environ.get("BINANCE_PROD_SECRET_KEY", "")
-    if prod_key:
-        os.environ["BINANCE_API_KEY"] = prod_key
-    if prod_secret:
-        os.environ["BINANCE_SECRET_KEY"] = prod_secret
+    BINANCE_API_KEY = os.environ.get("BINANCE_PROD_API_KEY", "")
+else:
+    BINANCE_API_KEY = os.environ.get("BINANCE_TESTNET_API_KEY", "")
 
 def log(msg):
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")

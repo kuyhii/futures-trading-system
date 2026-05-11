@@ -36,13 +36,16 @@ for d in [KLINE_1M_DIR, KLINE_2M_DIR]:
 
 # ── Binance API ──
 BINANCE_API_ENV = os.environ.get("BINANCE_API_ENV", "testnet")
-BINANCE_API_KEY = os.environ.get("BINANCE_API_KEY", "")
+
+if BINANCE_API_ENV == "prod":
+    BINANCE_API_KEY = os.environ.get("BINANCE_PROD_API_KEY", "")
+else:
+    BINANCE_API_KEY = os.environ.get("BINANCE_TESTNET_API_KEY", "")
 BINANCE_SECRET_KEY = os.environ.get("BINANCE_SECRET_KEY", "")
 
 BASE_URLS = {
     "prod":    "https://fapi.binance.com",
     "testnet": "https://testnet.binancefuture.com",
-    "demo":    "https://testnet.binancefuture.com",
 }
 BASE_URL = BASE_URLS.get(BINANCE_API_ENV, BASE_URLS["testnet"])
 
@@ -67,7 +70,10 @@ def _load_env():
 _load_env()
 # Re-read after loading .env
 BINANCE_API_ENV = os.environ.get("BINANCE_API_ENV", "testnet")
-BINANCE_API_KEY = os.environ.get("BINANCE_API_KEY", "")
+if BINANCE_API_ENV == "prod":
+    BINANCE_API_KEY = os.environ.get("BINANCE_PROD_API_KEY", "")
+else:
+    BINANCE_API_KEY = os.environ.get("BINANCE_TESTNET_API_KEY", "")
 BASE_URL = BASE_URLS.get(BINANCE_API_ENV, BASE_URLS["testnet"])
 
 
@@ -265,19 +271,38 @@ def synthesize_2m_kline(kline_1m_a: dict, kline_1m_b: dict) -> dict:
 
 
 def synthesize_2m_from_1m(klines_1m: List[dict]) -> List[dict]:
-    """从 1m K 线列表合成 2m K 线列表"""
+    """
+    从 1m K 线列表合成 2m K 线列表
+    
+    修复: 按 2m 时间边界对齐（偶数分钟 :00, :02, :04 ...）
+    不再简单配对 [0]+[1], [2]+[3]，而是根据 open_time 对齐到 2m 桶
+    """
     if len(klines_1m) < 2:
         return []
 
+    TWO_MIN_MS = 2 * 60 * 1000  # 2分钟毫秒数
+
+    # 按 2m 边界分组
+    buckets: Dict[int, List[dict]] = {}
+    for k in klines_1m:
+        bucket_key = (k["open_time"] // TWO_MIN_MS) * TWO_MIN_MS
+        if bucket_key not in buckets:
+            buckets[bucket_key] = []
+        buckets[bucket_key].append(k)
+
     result = []
-    i = 0
-    while i + 1 < len(klines_1m):
+    for bucket_key in sorted(buckets.keys()):
+        group = buckets[bucket_key]
+        # 按 open_time 排序
+        group.sort(key=lambda x: x["open_time"])
+        if len(group) < 2:
+            # 如果桶内只有 1 根，跳过（不完整的 2m K线）
+            continue
+        # 取桶内前两根合成
         try:
-            k2m = synthesize_2m_kline(klines_1m[i], klines_1m[i + 1])
+            k2m = synthesize_2m_kline(group[0], group[1])
             result.append(k2m)
-            i += 2
         except (KeyError, IndexError):
-            i += 1
             continue
 
     return result

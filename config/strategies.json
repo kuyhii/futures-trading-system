@@ -1,5 +1,5 @@
 {
-  "active": ["trend_follow", "mean_reversion", "breakout", "czsc"],
+  "active": ["trend_follow", "mean_reversion", "breakout"],
   "symbols": ["BTCUSDT", "ETHUSDT"],
   "timeframe": "2m",
   "indicators": {
@@ -27,8 +27,6 @@
       "weight": 1.0,
       "priority": 1,
       "description": "MA 金叉/死叉 + MACD 确认 + 成交量",
-      "entry": "fast_ma > slow_ma AND macd_histogram > 0 AND volume > volume_ma_20 * 1.2",
-      "exit": "fast_ma < slow_ma",
       "timeframe": "2m",
       "leverage": 20,
       "min_confidence": 0.6
@@ -38,8 +36,6 @@
       "weight": 0.8,
       "priority": 2,
       "description": "RSI 超买超卖 + 布林带",
-      "entry_long": "rsi < 30 AND price < bollinger_lower",
-      "entry_short": "rsi > 70 AND price > bollinger_upper",
       "timeframe": "2m",
       "leverage": 20,
       "min_confidence": 0.7
@@ -50,40 +46,9 @@
       "priority": 3,
       "description": "突破 N 周期高低点 + 成交量确认",
       "lookback_periods": 20,
-      "oi_confirmation": true,
       "timeframe": "2m",
       "leverage": 20,
       "min_confidence": 0.5
-    },
-    "funding_rate": {
-      "enabled": false,
-      "weight": 0.5,
-      "priority": 5,
-      "description": "极端资金费率反向开仓",
-      "threshold": 0.001,
-      "timeframe": "1h",
-      "leverage": 20
-    },
-    "lsr_reversal": {
-      "enabled": false,
-      "weight": 0.5,
-      "priority": 5,
-      "description": "大户多空比极端值反转",
-      "threshold_long": 0.70,
-      "threshold_short": 0.30,
-      "timeframe": "1h",
-      "leverage": 20
-    },
-    "czsc": {
-      "enabled": true,
-      "weight": 1.0,
-      "priority": 1,
-      "description": "CZSC 缠论策略 — 分型/笔/决策信号（2m+15m多级别）",
-      "timeframe": "2m",
-      "confirmation_timeframe": "15m",
-      "leverage": 20,
-      "min_confidence": 0.65,
-      "max_signals_per_hour": 2
     }
   }
 }
