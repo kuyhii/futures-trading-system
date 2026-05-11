@@ -127,6 +127,8 @@ class BinanceClient:
         self._last_error_time = 0
         self._consecutive_errors = 0
         self.circuit_breaker = False
+        self._circuit_cooldown_ms = 60_000  # 初始冷却 60 秒
+        self._max_circuit_cooldown_ms = 900_000  # 最大冷却 15 分钟
 
     def _sign(self, params: dict) -> dict:
         if not self.api_secret:
@@ -142,11 +144,12 @@ class BinanceClient:
     def _request(self, method: str, path: str, params: dict = None,
                  signed: bool = False, retries: int = 3) -> dict:
         if self.circuit_breaker:
-            if time.time() - self._last_error_time < 60:
-                raise RuntimeError("🚨 API 熔断中，等待冷却")
+            cooldown_s = self._circuit_cooldown_ms / 1000
+            if time.time() - self._last_error_time < cooldown_s:
+                raise RuntimeError(f"🚨 API 熔断中，等待冷却 {cooldown_s:.0f}s")
             self.circuit_breaker = False
-            self._consecutive_errors = 0
-            logger.warning("熔断已解除，恢复请求")
+            logger.warning(f"熔断已解除，恢复请求（上次冷却 {cooldown_s:.0f}s）")
+            self._circuit_cooldown_ms = 60_000  # 重置为初始值
 
         url = f"{self.base_url}{path}"
         params = params or {}
@@ -177,7 +180,12 @@ class BinanceClient:
                     self._last_error_time = time.time()
                     if self._consecutive_errors >= 5:
                         self.circuit_breaker = True
-                        logger.error("🚨 连续 5 次错误，触发熔断！")
+                        # 递增冷却：60s → 120s → 240s → ... → 最大 15 分钟
+                        self._circuit_cooldown_ms = min(
+                            self._circuit_cooldown_ms * 2,
+                            self._max_circuit_cooldown_ms
+                        )
+                        logger.error(f"🚨 连续 5 次错误，触发熔断！冷却 {self._circuit_cooldown_ms/1000:.0f}s")
                     body = resp.text
                     logger.error(f"API 错误 [{resp.status_code}]: {body}")
                     if attempt < retries - 1:
@@ -946,19 +954,23 @@ class OrderManager:
                 return result
             result["status"] = "opened"
             result["order_id"] = order.get("orderId", 0)
-            result["fill_price"] = float(order.get("avgPrice", order.get("price", price)))
+            result["fill_price"] = float(order.get("avgPrice", 0) or order.get("price", 0) or price)
             result["executed_qty"] = float(order.get("executedQty", qty))
             logger.info(f"✅ 开仓成功: {side.value.upper()} {symbol} {qty} @ {result['fill_price']}")
-            try:
-                notifier.trade_opened(symbol, side.value, quantity, result['fill_price'],
-                                     leverage, strategy, sl, tp, dry_run=False)
-            except Exception as e:
-                logger.warning(f"通知发送失败: {e}")
+            
+            # 先计算止损止盈，再发送通知
             sl = self.risk.calc_stop_loss(result["fill_price"], side)
             tp = self.risk.calc_take_profit(result["fill_price"], side)
             result["stop_loss"] = sl
             result["take_profit"] = tp
             self._place_sl_tp(symbol, side, sl, tp)
+            
+            try:
+                notifier.trade_opened(symbol, side.value, quantity, result['fill_price'],
+                                     leverage, strategy, sl, tp, dry_run=False)
+            except Exception as e:
+                logger.warning(f"通知发送失败: {e}")
+            
             self._record_trade("open", symbol, side.value, quantity,
                               result["fill_price"], strategy, "OK")
             return result
@@ -1064,16 +1076,46 @@ class OrderManager:
 
     def _place_sl_tp(self, symbol: str, side: PositionSide,
                      sl_price: float, tp_price: float):
+        """
+        设置止损和止盈
+        币安已迁移止损止盈到 Algo Order API (fapi/v1/algoOrder)
+        """
         try:
             close_side = "SELL" if side == PositionSide.LONG else "BUY"
             sl_price = self.client.adjust_price(symbol, sl_price)
             tp_price = self.client.adjust_price(symbol, tp_price)
-            self.client.new_order(symbol, close_side, "STOP_MARKET",
-                                  stop_price=sl_price, close_position=True)
-            logger.info(f"🛡 止损已设置: {sl_price}")
-            self.client.new_order(symbol, close_side, "TAKE_PROFIT_MARKET",
-                                  stop_price=tp_price, close_position=True)
-            logger.info(f"🎯 止盈已设置: {tp_price}")
+            
+            # 使用 Algo Order API 设置止损
+            sl_params = {
+                "symbol": symbol,
+                "side": close_side,
+                "positionSide": "BOTH",
+                "type": "STOP_MARKET",
+                "stopPrice": sl_price,
+                "closePosition": "true",
+                "workingType": "CONTRACT_PRICE",
+            }
+            sl_result = self.client._request("POST", "/fapi/v1/algoOrder", sl_params)
+            if "code" in sl_result and sl_result["code"] != 200:
+                logger.warning(f"⚠️ 止损设置失败: {sl_result.get('msg', sl_result)}")
+            else:
+                logger.info(f"🛡 止损已设置: {sl_price}")
+            
+            # 使用 Algo Order API 设置止盈
+            tp_params = {
+                "symbol": symbol,
+                "side": close_side,
+                "positionSide": "BOTH",
+                "type": "TAKE_PROFIT_MARKET",
+                "stopPrice": tp_price,
+                "closePosition": "true",
+                "workingType": "CONTRACT_PRICE",
+            }
+            tp_result = self.client._request("POST", "/fapi/v1/algoOrder", tp_params)
+            if "code" in tp_result and tp_result["code"] != 200:
+                logger.warning(f"⚠️ 止盈设置失败: {tp_result.get('msg', tp_result)}")
+            else:
+                logger.info(f"🎯 止盈已设置: {tp_price}")
         except Exception as e:
             logger.error(f"设置止损止盈异常: {e}")
 
@@ -1131,12 +1173,17 @@ class TradingEngine:
         self._risk_thread: Optional[threading.Thread] = None
         self._risk_stop_event = threading.Event()
 
-        # 信号置信度阈值（2m K线信号波动大，降低至55%）
-        self.min_confidence = 0.55
+        # 信号置信度阈值（与风控文档一致：≥0.7）
+        self.min_confidence = 0.7
 
         self._kline_cache: Dict[str, List[dict]] = {}
         self._last_signal_time: Dict[str, float] = {}
         self.signal_cooldown = 300
+
+        # ── 线程锁：保护共享数据 ──
+        self._account_lock = threading.Lock()      # 保护 self.account
+        self._kline_cache_lock = threading.Lock()  # 保护 self._kline_cache
+        self._signal_time_lock = threading.Lock()  # 保护 self._last_signal_time
 
         # ── K线数据管理器（本地采集+合成） ──
         self.symbols_list = [s["symbol"] for s in self.symbols_config]
@@ -1277,20 +1324,21 @@ class TradingEngine:
             self.account.margin_balance = float(acc_info.get("totalMarginBalance", 0))
             self.account.total_equity = self.account.margin_balance
             raw_positions = self.client.positions()
-            self.account.positions = []
-            for p in raw_positions:
-                amt = float(p["positionAmt"])
-                if amt == 0:
-                    continue
-                pos = Position(
-                    symbol=p["symbol"], side=PositionSide.LONG if amt > 0 else PositionSide.SHORT,
-                    quantity=abs(amt), entry_price=float(p["entryPrice"]),
-                    leverage=int(p["leverage"]), unrealized_pnl=float(p["unRealizedProfit"]),
-                    mark_price=float(p["markPrice"]),
-                    liquidation_price=float(p["liquidationPrice"]),
-                    entry_time=datetime.now(timezone.utc).isoformat(),
-                )
-                self.account.positions.append(pos)
+            with self._account_lock:
+                self.account.positions = []
+                for p in raw_positions:
+                    amt = float(p["positionAmt"])
+                    if amt == 0:
+                        continue
+                    pos = Position(
+                        symbol=p["symbol"], side=PositionSide.LONG if amt > 0 else PositionSide.SHORT,
+                        quantity=abs(amt), entry_price=float(p["entryPrice"]),
+                        leverage=int(p["leverage"]), unrealized_pnl=float(p["unRealizedProfit"]),
+                        mark_price=float(p["markPrice"]),
+                        liquidation_price=float(p["liquidationPrice"]),
+                        entry_time=datetime.now(timezone.utc).isoformat(),
+                    )
+                    self.account.positions.append(pos)
             if self.risk._daily_start_equity == 0:
                 self.risk.set_daily_start(self.account.total_equity)
             self.risk._peak_equity = max(self.risk._peak_equity, self.account.total_equity)
@@ -1424,7 +1472,8 @@ class TradingEngine:
         action = signal.action
 
         now = time.time()
-        last = self._last_signal_time.get(symbol, 0)
+        with self._signal_time_lock:
+            last = self._last_signal_time.get(symbol, 0)
         if now - last < self.signal_cooldown:
             logger.debug(f"⏳ {symbol} 信号冷却中，跳过（{now - last:.0f}s < {self.signal_cooldown}s）")
             return
@@ -1436,7 +1485,8 @@ class TradingEngine:
         elif action == SignalAction.SELL:
             self._handle_sell_signal(signal)
 
-        self._last_signal_time[symbol] = now
+        with self._signal_time_lock:
+            self._last_signal_time[symbol] = now
 
     def _handle_buy_signal(self, signal: TradeSignal):
         symbol = signal.symbol
@@ -1510,9 +1560,11 @@ class TradingEngine:
                        f"置信度={signal.confidence}")
 
     def monitor_positions(self):
-        if not self.account.positions:
+        with self._account_lock:
+            positions = list(self.account.positions)
+        if not positions:
             return
-        for pos in list(self.account.positions):
+        for pos in positions:
             try:
                 price_data = self.client.mark_price(pos.symbol)
                 pos.mark_price = float(price_data.get("markPrice", pos.mark_price))
@@ -1583,7 +1635,9 @@ class TradingEngine:
         logger.info(f"🛡 风控巡检线程启动（每 {self.risk_interval}s）")
         while not self._risk_stop_event.is_set():
             try:
-                if self.account.positions:
+                with self._account_lock:
+                    has_positions = bool(self.account.positions)
+                if has_positions:
                     self.refresh_account()
                     self.monitor_positions()
                 else:
@@ -1624,8 +1678,8 @@ class TradingEngine:
 
         # 启动后台更新线程（每 60 秒更新所有品种 1m K 线）
         self.kline_manager.start_background_update(interval=60)
-        # 启动后台清理线程（每 12 小时清理超过 6 小时的数据）
-        self.kline_manager.start_background_cleanup(interval=43200, max_age_hours=6.0)
+        # 启动后台清理线程（每 12 小时清理超过 24 小时的数据，缠论策略需要更长历史）
+        self.kline_manager.start_background_cleanup(interval=43200, max_age_hours=24.0)
 
         self._risk_thread = threading.Thread(target=self._risk_monitor_loop, daemon=True)
         self._risk_thread.start()

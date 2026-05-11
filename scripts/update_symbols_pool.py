@@ -15,14 +15,14 @@
   6. 更新 config/symbols.json
 
 集合定义（实盘）：
-  A. 前24h成交额 > 10,000,000 USDT
-  B. 24h涨幅前20
-  C. 24h跌幅前20
+  A. 前24h成交额 > 80,000,000 USDT
+  B. 24h涨幅前10
+  C. 24h跌幅前10
 
 集合定义（模拟盘）：
-  A. 前24h成交额 > 10,000,000 USDT
-  B. 24h涨幅前35（扩大范围）
-  C. 24h跌幅前35（扩大范围）
+  A. 前24h成交额 > 80,000,000 USDT
+  B. 24h涨幅前30
+  C. 24h跌幅前30
 
 最终规则：实盘和模拟盘都存在的品种，取并集
 
@@ -78,9 +78,10 @@ API_URLS = {
 }
 
 # 阈值
-VOLUME_THRESHOLD = 10_000_000  # 1000万 USDT
-PROD_TOP_N = 20    # 实盘涨幅/跌幅前N
-TESTNET_TOP_N = 35 # 模拟盘涨幅/跌幅前N（扩大范围）
+VOLUME_THRESHOLD = 80_000_000  # 8000万 USDT
+PROD_TOP_N = 10    # 实盘涨幅/跌幅前N
+TESTNET_TOP_N = 30 # 模拟盘涨幅/跌幅前N
+MAX_SYMBOLS = 30   # 品种池上限（确保60秒内可完成全量分析）
 
 
 def is_stablecoin(base: str) -> bool:
@@ -170,7 +171,7 @@ def filter_symbols(tickers: list, env_label: str = "") -> list:
 def compute_sets(tickers: list, top_n: int, env_label: str = "") -> tuple:
     """计算3个候选集合"""
 
-    # ── 集合A：成交额 > 1000万 USDT ──
+    # ── 集合A：成交额 > 8000万 USDT ──
     set_a = {}
     for t in tickers:
         quote_volume = float(t.get("quoteVolume", 0))
@@ -181,7 +182,7 @@ def compute_sets(tickers: list, top_n: int, env_label: str = "") -> tuple:
                 "priceChangePercent": float(t.get("priceChangePercent", 0)),
             }
     label = f"[{env_label}] " if env_label else ""
-    logger.info(f"{label}📈 集合A（成交额>1000万U）: {len(set_a)} 个")
+    logger.info(f"{label}📈 集合A（成交额>8000万U）: {len(set_a)} 个")
 
     # ── 集合B：涨幅前N ──
     sorted_by_gain = sorted(
@@ -250,16 +251,7 @@ def dual_filter(prod_sets, testnet_sets) -> dict:
     testnet_only = testnet_all - prod_all
     logger.info(f"  ❌ 模拟盘独有（排除）: {len(testnet_only)} 个")
 
-    # 检查实盘成交量不达标的
-    volume_fail = []
-    for sym in common:
-        if sym in prod_a:
-            continue  # 成交额达标
-        # 检查是否在涨幅/跌幅榜
-        if sym not in prod_b and sym not in prod_c:
-            volume_fail.append(sym)
-
-    # 最终品种池
+    # 最终品种池（仅保留成交额达标 OR 在涨跌榜的品种）
     final = {}
     for sym in common:
         # 使用实盘数据
@@ -297,6 +289,13 @@ def build_watchlist(merged: dict, existing_config: dict) -> list:
     watchlist = []
 
     sorted_items = sorted(merged.values(), key=lambda x: x["quoteVolume"], reverse=True)
+
+    # 品种池上限：按成交额截取前 MAX_SYMBOLS 个
+    if len(sorted_items) > MAX_SYMBOLS:
+        trimmed = sorted_items[MAX_SYMBOLS:]
+        logger.info(f"⚡ 品种池上限 {MAX_SYMBOLS}，截取前 {MAX_SYMBOLS} 个（按成交额排序）")
+        logger.info(f"  被截断: {[s['symbol'] for s in trimmed]}")
+        sorted_items = sorted_items[:MAX_SYMBOLS]
 
     for i, item in enumerate(sorted_items):
         symbol = item["symbol"]
@@ -338,7 +337,7 @@ def update_symbols_file(watchlist: list, dry_run: bool = False):
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "total_symbols": len(watchlist),
         "update_method": "dual_verify_pool_prod_testnet",
-        "note": "动态交易品种池V2：实盘+模拟盘双重验证，每日自动更新。实盘成交额>1000万U ∪ 涨幅前20 ∪ 跌幅前20，与模拟盘取交集",
+        "note": "动态交易品种池V2：实盘+模拟盘双重验证，每日自动更新。实盘成交额>8000万U ∪ 涨幅前10 ∪ 跌幅前10，与模拟盘（成交额>8000万U ∪ 涨幅前30 ∪ 跌幅前30）取交集",
     }
 
     if dry_run:

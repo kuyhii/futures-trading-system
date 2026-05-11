@@ -16,6 +16,8 @@ core/notify.py - 通知模块
 import json
 import os
 import logging
+import threading
+import queue
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -59,7 +61,7 @@ def _strategy_cn(strategy: str) -> str:
 
 
 class Notifier:
-    """统一通知管理器"""
+    """统一通知管理器（异步发送，不阻塞主循环）"""
 
     def __init__(self):
         self.enabled = NOTIFY_ENABLED
@@ -68,53 +70,53 @@ class Notifier:
         self._last_alert_time = 0
         self._alert_cooldown = 60
 
+        # ── 异步发送队列 ──
+        self._send_queue = queue.Queue(maxsize=100)
+        self._send_thread = threading.Thread(target=self._send_loop, daemon=True, name="notify_sender")
+        self._send_thread.start()
+
     def _log_notify(self, text: str):
         ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
         with open(notify_log, "a") as f:
             f.write(f"[{ts}] {text}\n")
 
-    async def _send_telegram(self, text: str, parse_mode: str = "HTML"):
-        if not self.enabled:
-            return False
-        try:
-            import aiohttp
-            url = f"https://api.telegram.org/bot{self.token}/sendMessage"
-            payload = {"chat_id": self.chat_id, "text": text, "parse_mode": parse_mode}
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, json=payload, timeout=10) as resp:
-                    if resp.status == 200:
-                        self._log_notify(f"OK: {text[:80]}")
-                        return True
-                    return False
-        except ImportError:
+    def _send_loop(self):
+        """后台发送线程：从队列中取消息并发送，不阻塞主循环"""
+        while True:
             try:
-                import requests
-                url = f"https://api.telegram.org/bot{self.token}/sendMessage"
-                payload = {"chat_id": self.chat_id, "text": text, "parse_mode": parse_mode}
-                resp = requests.post(url, json=payload, timeout=10)
-                return resp.status_code == 200
+                text, parse_mode = self._send_queue.get(timeout=5)
+                self._do_send(text, parse_mode)
+                self._send_queue.task_done()
+            except queue.Empty:
+                continue
             except Exception as e:
-                logger.error(f"Telegram 发送失败: {e}")
-                return False
-        except Exception as e:
-            logger.error(f"Telegram 发送失败: {e}")
-            return False
+                logger.error(f"通知发送线程异常: {e}")
 
-    def send_sync(self, text: str, parse_mode: str = "HTML"):
+    def _do_send(self, text: str, parse_mode: str = "HTML"):
+        """实际发送 Telegram 消息"""
         if not self.enabled:
-            logger.info(f"[通知] {text[:100]}")
             return
         try:
-            import requests
             url = f"https://api.telegram.org/bot{self.token}/sendMessage"
             payload = {"chat_id": self.chat_id, "text": text, "parse_mode": parse_mode}
+            import requests
             resp = requests.post(url, json=payload, timeout=10)
             if resp.status_code == 200:
                 self._log_notify(f"OK: {text[:80]}")
             else:
                 self._log_notify(f"ERR {resp.status_code}: {text[:80]}")
         except Exception as e:
-            logger.error(f"通知发送失败: {e}")
+            logger.error(f"Telegram 发送失败: {e}")
+
+    def send_sync(self, text: str, parse_mode: str = "HTML"):
+        """异步发送：将消息放入队列，立即返回，不阻塞主循环"""
+        if not self.enabled:
+            logger.info(f"[通知] {text[:100]}")
+            return
+        try:
+            self._send_queue.put_nowait((text, parse_mode))
+        except queue.Full:
+            logger.warning("通知队列已满，丢弃消息")
 
     # ── 通知模板 ──
 

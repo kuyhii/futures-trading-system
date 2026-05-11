@@ -118,6 +118,11 @@ class BacktestEngine:
         with open(os.path.join(CONFIG_DIR, "strategies.json")) as f:
             self.config = json.load(f)
 
+        # 如果未指定杠杆，从策略配置中取最大值
+        if leverage == 5:  # 默认值
+            risk_cfg = self._load_risk_config()
+            self.leverage = risk_cfg.get("max_leverage", leverage)
+
         # 过滤启用的策略
         if strategies:
             for name in self.config["strategies"]:
@@ -143,26 +148,50 @@ class BacktestEngine:
             return json.load(f)
 
     def load_klines(self) -> List[dict]:
-        """加载 K 线数据"""
-        # 1. 尝试从本地缓存加载
-        kline_dir = os.path.join(DATA_DIR, "klines")
-        files = sorted([
-            f for f in os.listdir(kline_dir)
-            if f.startswith(f"{self.symbol}_{self.timeframe}_")
-        ], reverse=True)
-
-        if files:
+        """加载 K 线数据（优先 JSONL 本地数据，兼容旧格式，回退 API）"""
+        # 1. 优先从 KlineManager 的 JSONL 文件加载（新格式）
+        tf_dir = os.path.join(DATA_DIR, "klines", self.timeframe)
+        jsonl_path = os.path.join(tf_dir, f"{self.symbol}.jsonl")
+        if os.path.exists(jsonl_path):
             try:
-                with open(os.path.join(kline_dir, files[0])) as f:
-                    raw = json.load(f)
-                candles = self._parse_klines(raw)
+                candles = []
+                with open(jsonl_path, "r") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line:
+                            k = json.loads(line)
+                            candles.append({
+                                "open": float(k["open"]), "high": float(k["high"]),
+                                "low": float(k["low"]), "close": float(k["close"]),
+                                "volume": float(k["volume"]),
+                                "open_time": k.get("open_time", 0),
+                            })
+                candles = candles[-self.bars:] if len(candles) > self.bars else candles
                 if candles:
-                    logger.info(f"从本地缓存加载 {len(candles)} 根 K 线")
+                    logger.info(f"✅ 从 JSONL 加载 {len(candles)} 根 K 线 ({jsonl_path})")
                     return candles
             except Exception as e:
-                logger.warning(f"本地缓存加载失败: {e}")
+                logger.warning(f"JSONL 加载失败: {e}")
 
-        # 2. 从 API 拉取
+        # 2. 兼容旧格式：data/klines/{symbol}_{timeframe}_*.json
+        kline_dir = os.path.join(DATA_DIR, "klines")
+        if os.path.exists(kline_dir):
+            files = sorted([
+                f for f in os.listdir(kline_dir)
+                if f.startswith(f"{self.symbol}_{self.timeframe}_")
+            ], reverse=True)
+            if files:
+                try:
+                    with open(os.path.join(kline_dir, files[0])) as f:
+                        raw = json.load(f)
+                    candles = self._parse_klines(raw)
+                    if candles:
+                        logger.info(f"从旧格式缓存加载 {len(candles)} 根 K 线")
+                        return candles
+                except Exception as e:
+                    logger.warning(f"旧缓存加载失败: {e}")
+
+        # 3. 从 API 拉取
         logger.info(f"从 API 拉取 {self.bars} 根 K 线 ({self.symbol} {self.timeframe})...")
         client = BinanceClient()
         raw = client.klines(self.symbol, self.timeframe, self.bars)

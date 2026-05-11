@@ -310,6 +310,10 @@ class KlineManager:
         self._update_stop_event = threading.Event()
         self._cleanup_stop_event = threading.Event()
 
+        # 线程锁：保护共享数据
+        self._symbols_lock = threading.Lock()        # 保护 self.symbols
+        self._update_time_lock = threading.Lock()    # 保护 self._last_update_time
+
         # 上次采集时间戳（用于增量更新）
         self._last_update_time: Dict[str, int] = {}
 
@@ -332,19 +336,20 @@ class KlineManager:
         - 新增品种：立即开始采集
         - 移除品种：停止采集，保留历史数据不删除
         """
-        old_set = set(self.symbols)
+        with self._symbols_lock:
+            old_set = set(self.symbols)
+            self.symbols = new_symbols
         new_set = set(new_symbols)
         added = new_set - old_set
         removed = old_set - new_set
-
-        self.symbols = new_symbols
 
         if added:
             logger.info(f"✅ K线采集新增品种: {sorted(added)}")
             # 新增品种立即加载历史数据
             for sym in added:
                 try:
-                    self._last_update_time[sym] = 0  # 重置时间戳，全量加载
+                    with self._update_time_lock:
+                        self._last_update_time[sym] = 0  # 重置时间戳，全量加载
                     self.initial_fetch_1m_klines(sym, limit=360)
                     self._synthesize_2m_for_symbol(sym)
                     logger.info(f"  {sym}: 加载 1m+合成2m 完成")
@@ -352,6 +357,10 @@ class KlineManager:
                     logger.warning(f"  {sym} 初始加载失败: {e}")
         if removed:
             logger.info(f"🗑️ K线采集移除品种: {sorted(removed)}")
+            # 清除旧时间戳，防止品种重新加入时K线数据断层
+            with self._update_time_lock:
+                for sym in removed:
+                    self._last_update_time.pop(sym, None)
 
     def _fetch_1m_klines_from_api(self, symbol: str, limit: int = 100) -> List[dict]:
         """
@@ -362,8 +371,9 @@ class KlineManager:
         params = {"symbol": symbol, "interval": "1m", "limit": limit}
 
         # 增量获取：从上次采集时间之后开始
-        if symbol in self._last_update_time:
-            params["startTime"] = self._last_update_time[symbol]
+        with self._update_time_lock:
+            if symbol in self._last_update_time:
+                params["startTime"] = self._last_update_time[symbol]
 
         raw = _binance_request("/fapi/v1/klines", params)
         if isinstance(raw, dict) and "error" in raw:
@@ -378,7 +388,8 @@ class KlineManager:
                 klines.append(k)
 
         if klines:
-            self._last_update_time[symbol] = klines[-1]["open_time"]
+            with self._update_time_lock:
+                self._last_update_time[symbol] = klines[-1]["open_time"]
             self.stats["total_fetches"] += 1
 
         return klines
@@ -577,11 +588,15 @@ class KlineManager:
 
     def _update_loop(self, interval: int):
         """后台更新循环"""
-        logger.info(f"🔄 K线更新循环启动（间隔 {interval}s，品种数 {len(self.symbols)}）")
+        with self._symbols_lock:
+            sym_count = len(self.symbols)
+        logger.info(f"🔄 K线更新循环启动（间隔 {interval}s，品种数 {sym_count}）")
         while not self._update_stop_event.is_set():
             try:
                 updated_count = 0
-                for symbol in self.symbols:
+                with self._symbols_lock:
+                    symbols_snapshot = list(self.symbols)
+                for symbol in symbols_snapshot:
                     try:
                         n = self.update_1m_klines(symbol)
                         if n > 0:

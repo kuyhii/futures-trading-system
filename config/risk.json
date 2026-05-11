@@ -8,7 +8,7 @@
   "max_drawdown_pct": 15,
   "trailing_stop": true,
   "trailing_distance_pct": 1,
-  "min_signal_confidence": 0.55,
+  "min_signal_confidence": 0.7,
   "signal_cooldown_seconds": 300,
   "multi_strategy_bonus": 0.15,
   "risk_rules": {
