@@ -439,6 +439,79 @@ class KlineManager:
 
         return len(klines)
 
+    def ensure_60min_filled(self, symbol: str) -> int:
+        """
+        确保最近 60 分钟 1m K线完整
+        
+        逻辑:
+          1. 读取本地最后时间戳
+          2. 距离当前 > 60 分钟 → 用 endTime=now 补齐 60 根
+          3. 文件为空 → 拉取 360 根历史
+          4. 写入 → 合成 2m
+        
+        返回: 获取的 K线数量
+        """
+        filepath = _get_file_path("1m", symbol)
+        now_ms = int(time.time() * 1000)
+        SIXTY_MIN_MS = 60 * 60 * 1000
+
+        # 检查本地最后时间戳
+        last_open_time = 0
+        local_count = 0
+        if os.path.exists(filepath) and os.path.getsize(filepath) > 0:
+            try:
+                lines = []
+                with open(filepath, "r") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line:
+                            lines.append(line)
+                local_count = len(lines)
+                if lines:
+                    last_kline = json.loads(lines[-1])
+                    last_open_time = last_kline.get("open_time", 0)
+            except Exception:
+                pass
+
+        gap = now_ms - last_open_time if last_open_time > 0 else 999999999
+
+        if local_count == 0:
+            # 文件为空 → 拉取 360 根历史（6小时）
+            logger.info(f"  {symbol}: 本地无数据，拉取 360 根历史")
+            return self.initial_fetch_1m_klines(symbol, limit=360)
+
+        if gap > SIXTY_MIN_MS:
+            # 超过 60 分钟缺口 → 补齐最近 60 根
+            logger.info(f"  {symbol}: 数据缺口 {gap // 60000} 分钟，补齐最近 60 根")
+            raw = _binance_request("/fapi/v1/klines", {
+                "symbol": symbol, "interval": "1m", "limit": 60
+            })
+            if isinstance(raw, dict) and "error" in raw:
+                self.stats["total_errors"] += 1
+                logger.warning(f"  {symbol}: 补齐失败 {raw['error']}")
+                return 0
+
+            klines = []
+            for item in raw:
+                k = _parse_binance_kline(item)
+                if k:
+                    klines.append(k)
+
+            if klines:
+                # 追加去重写入
+                _append_klines_batch("1m", symbol, klines)
+                with self._update_time_lock:
+                    self._last_update_time[symbol] = klines[-1]["open_time"]
+                self.stats["total_fetches"] += 1
+                # 合成 2m
+                self._synthesize_2m_for_symbol(symbol)
+                logger.info(f"  {symbol}: 补齐完成，新增 {len(klines)} 根")
+                return len(klines)
+            return 0
+
+        logger.debug(f"  {symbol}: 数据连续（缺口 {gap // 60000} 分钟），无需补齐")
+        return 0
+
     def initial_fetch_1m_klines(self, symbol: str, limit: int = 360) -> int:
         """
         初始获取（首次启动时）：获取最近 N 根 1m K 线

@@ -480,7 +480,68 @@ class TradingEngine:
             self._risk_stop_event.wait(self.risk_interval)
         logger.info("🛡 风控巡检线程已停止")
 
-    def start(self):
+    def startup_pipeline(self, full_init: bool = True):
+        """
+        V3.1 启动管道：品种池更新 → K线补齐 → 2m 合成
+        
+        full_init=True:  全量初始化（更新品种池+补齐K线+合成）
+        full_init=False: 快速启动（用本地缓存）
+        """
+        logger.info(f"\n{'='*50}")
+        logger.info(f"🔧 启动管道：{'全量初始化' if full_init else '快速启动'}")
+        logger.info(f"{'='*50}")
+
+        # Step 1: 品种池更新
+        if full_init:
+            logger.info("Step 1/4: 更新品种池...")
+            try:
+                self._update_symbols_pool()
+            except Exception as e:
+                logger.warning(f"品种池更新失败，回退本地缓存: {e}")
+                logger.info("  使用本地 symbols.json")
+        else:
+            logger.info("Step 1/4: 跳过品种池更新（快速启动）")
+
+        # 加载当前品种池
+        self.symbols_config = self._load_symbols()
+        self.symbols_list = [s["symbol"] for s in self.symbols_config]
+        self.kline_manager.symbols = self.symbols_list
+        logger.info(f"  品种池: {len(self.symbols_list)} 个 → {[s for s in self.symbols_list[:5]]}...")
+
+        # Step 2: 补齐 1m K线（确保最近 60 分钟）
+        logger.info("Step 2/4: 补齐 1m K线（最近 60 分钟）...")
+        total_klines = 0
+        for symbol in self.symbols_list:
+            try:
+                n = self.kline_manager.ensure_60min_filled(symbol)
+                total_klines += n
+            except Exception as e:
+                logger.warning(f"  {symbol}: K线补齐失败: {e}")
+        logger.info(f"  补齐完成: 共获取 {total_klines} 根 1m K线")
+
+        # Step 3: 合成 2m K线
+        logger.info("Step 3/4: 合成 2m K线...")
+        synthesized = 0
+        for symbol in self.symbols_list:
+            try:
+                self.kline_manager._synthesize_2m_for_symbol(symbol)
+                # 验证合成结果
+                k2m = self.kline_manager.get_klines_2m(symbol, limit=5)
+                if k2m:
+                    synthesized += 1
+            except Exception as e:
+                logger.warning(f"  {symbol}: 2m 合成失败: {e}")
+        logger.info(f"  合成完成: {synthesized}/{len(self.symbols_list)} 个品种")
+
+        # Step 4: 策略自检
+        logger.info("Step 4/4: 策略自检...")
+        self.self_check_strategies()
+        self.refresh_account()
+        logger.info(f"{'='*50}")
+        logger.info(f"✅ 启动管道完成，准备开始交易")
+        logger.info(f"{'='*50}\n")
+
+    def start(self, full_init: bool = True):
         self.running = True
         logger.info(f"🚀 交易引擎启动 [{MODE_LABEL}]")
         if BINANCE_API_ENV == "prod":
@@ -497,15 +558,10 @@ class TradingEngine:
         sig.signal(sig.SIGINT, stop_handler)
         sig.signal(sig.SIGTERM, stop_handler)
 
-        self.self_check_strategies()
-        self.refresh_account()
+        # V3.1 启动管道
+        self.startup_pipeline(full_init=full_init)
 
-        logger.info("📥 初始化 K 线数据管理器...")
-        try:
-            self.kline_manager.initial_load()
-        except Exception as e:
-            logger.error(f"K 线初始加载失败: {e}")
-
+        # 启动后台线程
         self.kline_manager.start_background_update(interval=60)
         self.kline_manager.start_background_cleanup(interval=43200, max_age_hours=24.0)
         self._risk_thread = threading.Thread(target=self._risk_monitor_loop, daemon=True)
@@ -559,8 +615,10 @@ class TradingEngine:
 
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description="量化交易引擎")
+    parser = argparse.ArgumentParser(description="量化交易引擎 V3.1")
     parser.add_argument("--env", choices=["testnet", "prod"], help="临时切换环境")
+    parser.add_argument("--full-init", action="store_true", default=True, help="全量初始化（更新品种池+补齐K线+合成）")
+    parser.add_argument("--quick-start", action="store_true", help="快速启动（用本地缓存）")
     parser.add_argument("--status", action="store_true", help="查看状态后退出")
     parser.add_argument("--self-check", action="store_true", help="策略自检后退出")
     args = parser.parse_args()
@@ -568,6 +626,7 @@ def main():
     if args.env:
         os.environ["BINANCE_API_ENV"] = args.env
 
+    full_init = not args.quick_start
     engine = TradingEngine()
 
     if args.status:
@@ -578,7 +637,7 @@ def main():
         return
 
     try:
-        engine.start()
+        engine.start(full_init=full_init)
     except KeyboardInterrupt:
         logger.info("收到中断信号")
     finally:
