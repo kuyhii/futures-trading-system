@@ -1,8 +1,8 @@
 {
   "max_leverage": 20,
   "fixed_margin_usdt": 50,
-  "stop_loss_pct": 2,
-  "take_profit_pct": 4,
+  "stop_loss_pct": 1.5,
+  "take_profit_pct": 3,
   "max_positions": 20,
   "daily_loss_limit_pct": 5,
   "max_drawdown_pct": 15,
@@ -14,11 +14,11 @@
   "risk_rules": {
     "single_stop_loss": {
       "enabled": true,
-      "description": "单笔亏损不超过保证金 2%"
+      "description": "单笔亏损不超过保证金 1.5%"
     },
     "single_take_profit": {
       "enabled": true,
-      "description": "单笔止盈 +4%，盈亏比 ≥ 1:2"
+      "description": "单笔止盈 +3%，盈亏比 1:2"
     },
     "max_positions": {
       "enabled": true,

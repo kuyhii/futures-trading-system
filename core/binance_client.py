@@ -47,6 +47,7 @@ class BinanceClient:
             if time.time() - self._last_error_time < cooldown_s:
                 return {"error": f"API 熔断中，等待冷却 {cooldown_s:.0f}s", "circuit_breaker": True}
             self.circuit_breaker = False
+            self._consecutive_errors = 0  # 重置错误计数，防止恢复后立刻再次熔断
             logger.warning(f"熔断已解除，恢复请求（上次冷却 {cooldown_s:.0f}s）")
             self._circuit_cooldown_ms = 60_000
 

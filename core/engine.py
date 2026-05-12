@@ -123,6 +123,7 @@ class TradingEngine:
 
         self._last_symbols_update = 0.0
         self._symbols_update_interval = 86400  # 24h
+        self._symbols_update_cooldown = 300  # 品种池更新前后5分钟禁止开仓（秒）
 
         self.risk_interval = 15
         self._risk_thread: Optional[threading.Thread] = None
@@ -179,6 +180,14 @@ class TradingEngine:
         if not added and not removed: logger.info("🔄 品种池无变化")
         self.symbols_list = new_symbols
         self.kline_manager.update_symbols(new_symbols)
+
+        # ── 清理被移除品种的历史数据 ──
+        self._cleanup_removed_symbols(removed)
+
+        # ── 记录更新时间，触发开仓冷却 ──
+        self._last_symbols_update = time.time()
+        logger.info(f"🚫 品种池更新冷却已启动：前后 {self._symbols_update_cooldown}s 内禁止开新仓")
+
         logger.info(f"  当前监控币种: {new_symbols} ({len(new_symbols)} 个)")
         return len(new_symbols)
 
@@ -194,6 +203,24 @@ class TradingEngine:
         else:
             logger.error(f"❌ 品种池脚本执行失败 (exit={result.returncode})")
             logger.error(f"stderr: {result.stderr[:500]}")
+
+    def _cleanup_removed_symbols(self, removed: list):
+        """清理被移除品种的1m和2m历史数据文件"""
+        kline_1m_dir = os.path.join(ROOT, "data", "klines", "1m")
+        kline_2m_dir = os.path.join(ROOT, "data", "klines", "2m")
+        cleaned = 0
+        for symbol in removed:
+            for tf_dir in [kline_1m_dir, kline_2m_dir]:
+                filepath = os.path.join(tf_dir, f"{symbol}.jsonl")
+                if os.path.exists(filepath):
+                    try:
+                        os.remove(filepath)
+                        cleaned += 1
+                        logger.info(f"🗑️ 已清理历史数据: {filepath}")
+                    except Exception as e:
+                        logger.error(f"清理文件失败 {filepath}: {e}")
+        if cleaned:
+            logger.info(f"📊 历史数据清理完成: 共删除 {cleaned} 个文件")
 
     def self_check_strategies(self) -> dict:
         logger.info("🔍 开始策略自检...")
@@ -352,6 +379,15 @@ class TradingEngine:
         symbol = signal.symbol
         action = signal.action
         now = time.time()
+
+        # ── 品种池更新冷却：前后5分钟内禁止开新仓 ──
+        if self._last_symbols_update > 0:
+            elapsed = now - self._last_symbols_update
+            if elapsed < self._symbols_update_cooldown:
+                remaining = self._symbols_update_cooldown - elapsed
+                logger.info(f"⏳ {symbol} 品种池更新冷却中，剩余 {remaining:.0f}s，跳过")
+                return
+
         with self._signal_time_lock:
             last = self._last_signal_time.get(symbol, 0)
         if now - last < self.signal_cooldown:
