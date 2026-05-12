@@ -45,7 +45,7 @@ class BinanceClient:
         if self.circuit_breaker:
             cooldown_s = self._circuit_cooldown_ms / 1000
             if time.time() - self._last_error_time < cooldown_s:
-                raise RuntimeError(f"🚨 API 熔断中，等待冷却 {cooldown_s:.0f}s")
+                return {"error": f"API 熔断中，等待冷却 {cooldown_s:.0f}s", "circuit_breaker": True}
             self.circuit_breaker = False
             logger.warning(f"熔断已解除，恢复请求（上次冷却 {cooldown_s:.0f}s）")
             self._circuit_cooldown_ms = 60_000
@@ -218,9 +218,9 @@ class BinanceClient:
 
     def get_symbol_info(self, symbol: str) -> Optional[dict]:
         info = self.exchange_info()
-        if "symbols" not in info:
+        if isinstance(info, dict) and ("error" in info or "symbols" not in info):
             return None
-        for s in info["symbols"]:
+        for s in info.get("symbols", []):
             if s["symbol"] == symbol:
                 return s
         return None

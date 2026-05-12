@@ -228,17 +228,28 @@ class TradingEngine:
             return
         try:
             acc_info = self.client.account_info()
+            if isinstance(acc_info, dict) and "error" in acc_info:
+                logger.warning(f"⚠️ 账户信息查询失败: {acc_info['error']}")
+                self._account_stale = True
+                return
             self.account.unrealized_pnl = float(acc_info.get("totalUnrealizedProfit", 0))
             self.account.margin_balance = float(acc_info.get("totalMarginBalance", 0))
             self.account.total_equity = self.account.margin_balance
             balances = self.client.account_balance()
-            for b in balances:
-                if b.get("asset") == "USDT":
-                    self.account.available_balance = float(b.get("availableBalance", 0))
+            if isinstance(balances, dict) and "error" in balances:
+                logger.warning(f"⚠️ 余额查询失败: {balances['error']}")
+            elif isinstance(balances, list):
+                for b in balances:
+                    if isinstance(b, dict) and b.get("asset") == "USDT":
+                        self.account.available_balance = float(b.get("availableBalance", 0))
             raw_positions = self.client.positions()
+            if isinstance(raw_positions, dict) and "error" in raw_positions:
+                logger.warning(f"⚠️ 持仓查询失败: {raw_positions['error']}")
+                raw_positions = []
             with self._account_lock:
                 self.account.positions = []
                 for p in raw_positions:
+                    if not isinstance(p, dict): continue
                     amt = float(p["positionAmt"])
                     if amt == 0: continue
                     pos = Position(
@@ -390,7 +401,7 @@ class TradingEngine:
         if price <= 0:
             logger.warning(f"⚠️ {symbol} 获取价格失败，跳过信号")
             return
-        leverages = [self.config.get("strategies", {}).get(s, {}).get("leverage", self.risk_config["max_leverage"]
+        leverages = [self.config.get("strategies", {}).get(s, {}).get("leverage", self.risk_config["max_leverage"])
                      for s in signal.strategy.split(",")]
         leverage = max(leverages)
         for pos in self.account.positions:

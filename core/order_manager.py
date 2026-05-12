@@ -35,8 +35,8 @@ class OrderManager:
             self.client.change_leverage(symbol, leverage)
             time.sleep(0.5)
             binance_side = "BUY" if side == PositionSide.LONG else "SELL"
-            qty = self.client.adjust_quantity(symbol, quantity)
-            order = self.client.new_order(symbol, binance_side, "MARKET", quantity=qty)
+            # quantity 已在调用方经过 adjust_quantity 处理
+            order = self.client.new_order(symbol, binance_side, "MARKET", quantity=quantity)
             if "error" in order:
                 result["status"] = "failed"
                 result["error"] = order["error"]
@@ -62,8 +62,8 @@ class OrderManager:
                 logger.warning(f"⚠️ API未返回成交价，使用信号价格 {price}")
 
             result["fill_price"] = api_price
-            result["executed_qty"] = float(order.get("executedQty", qty))
-            logger.info(f"✅ 开仓成功: {side.value.upper()} {symbol} {qty} @ {api_price}")
+            result["executed_qty"] = float(order.get("executedQty", quantity))
+            logger.info(f"✅ 开仓成功: {side.value.upper()} {symbol} {quantity} @ {api_price}")
 
             # 验证止损止盈价格有效性
             sl = self.risk.calc_stop_loss(api_price, side)
@@ -147,13 +147,20 @@ class OrderManager:
             close_side = "SELL" if side == PositionSide.LONG else "BUY"
             sl_price = self.client.adjust_price(symbol, sl_price)
             tp_price = self.client.adjust_price(symbol, tp_price)
+            pos_side = "BOTH"  # 双向持仓模式
 
+            # ── 测试网 Algo Order API 格式 ──
+            # algotype=CONDITIONAL, type=STOP_MARKET/TAKE_PROFIT_MARKET, triggerprice(小写!)
+            # 生产环境用 /fapi/v1/order + STOP_MARKET 即可
             sl_params = {
-                "symbol": symbol, "side": close_side,
-                "positionSide": "BOTH", "type": "STOP_MARKET",
-                "stopPrice": sl_price, "closePosition": "true",
+                "symbol": symbol,
+                "side": close_side,
+                "positionSide": pos_side,
+                "algotype": "CONDITIONAL",
+                "type": "STOP_MARKET",
+                "triggerprice": sl_price,
+                "closePosition": "true",
                 "workingType": "CONTRACT_PRICE",
-                "algotype": "STANDARD",
             }
             sl_result = self.client._request("POST", "/fapi/v1/algoOrder", sl_params, signed=True)
             if "error" in sl_result:
@@ -162,11 +169,14 @@ class OrderManager:
                 logger.info(f"🛡 止损已设置: {sl_price}")
 
             tp_params = {
-                "symbol": symbol, "side": close_side,
-                "positionSide": "BOTH", "type": "TAKE_PROFIT_MARKET",
-                "stopPrice": tp_price, "closePosition": "true",
+                "symbol": symbol,
+                "side": close_side,
+                "positionSide": pos_side,
+                "algotype": "CONDITIONAL",
+                "type": "TAKE_PROFIT_MARKET",
+                "triggerprice": tp_price,
+                "closePosition": "true",
                 "workingType": "CONTRACT_PRICE",
-                "algotype": "STANDARD",
             }
             tp_result = self.client._request("POST", "/fapi/v1/algoOrder", tp_params, signed=True)
             if "error" in tp_result:
