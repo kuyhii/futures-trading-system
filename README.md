@@ -116,6 +116,13 @@ python3 scripts/update_symbols_pool.py   # 手动筛选
 
 ## 📈 更新日志
 
+### V3.1（2026-05-12）— 关键 Bug 修复
+- 🐛 **引擎语法错误**: 修复 `_handle_sell_signal` 缺少右括号导致引擎无法启动
+- 🛡️ **止盈损设置修复**: 测试网要求 `STOP_MARKET/TAKE_PROFIT_MARKET` 走 Algo Order API（`/fapi/v1/algoOrder`），参数修正为 `algotype=CONDITIONAL` + `triggerprice`（小写）
+- 🔥 **熔断异常修复**: API 熔断时不再抛 `RuntimeError`，改为返回错误 dict，避免主循环崩溃
+- 🛡️ **账户刷新安全**: `refresh_account` 增加 API 错误返回值校验，防止 `'str' object has no attribute 'get'` 崩溃
+- ⚡ **重复调仓修复**: `open_position` 移除重复的 `adjust_quantity` 调用
+
 ### V3（2026-05-11）— 模块化重构
 - 🔧 **全系统模块化**: 拆分为 8 个独立模块（binance_client/models/indicators/strategy_engine/risk_engine/order_manager/notify/kline_manager）
 - 🗑️ **删除缠论策略**: 移除 CZSC 缠论模块及其依赖
