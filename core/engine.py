@@ -123,7 +123,12 @@ class TradingEngine:
 
         self._last_symbols_update = 0.0
         self._symbols_update_interval = 86400  # 24h
-        self._symbols_update_cooldown = 300  # 品种池更新前后5分钟禁止开仓（秒）
+        # 品种池更新前30分钟停止开仓 + 后5分钟恢复（秒）
+        self._symbols_update_cooldown_pre = 1800   # 前30分钟
+        self._symbols_update_cooldown_post = 300   # 后5分钟
+        # 定时任务时间戳
+        self._next_biancsw_analysis = 0.0   # biancsw 分析触发时间
+        self._next_param_tuning = 0.0      # 策略调参触发时间
 
         self.risk_interval = 15
         self._risk_thread: Optional[threading.Thread] = None
@@ -221,6 +226,160 @@ class TradingEngine:
                         logger.error(f"清理文件失败 {filepath}: {e}")
         if cleaned:
             logger.info(f"📊 历史数据清理完成: 共删除 {cleaned} 个文件")
+
+
+    def _check_pre_update_tasks(self):
+        """品种池更新前定时任务调度（每日 UTC 00:00 更新）"""
+        now = datetime.now(timezone.utc)
+        now_ts = now.timestamp()
+
+        # 下一个 UTC 00:00
+        next_midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        midnight_ts = next_midnight.timestamp()
+
+        # T-25min = 触发 biancsw 数据分析
+        t25 = midnight_ts - 25 * 60
+        if now_ts >= t25 and self._next_biancsw_analysis == 0:
+            self._run_biancsw_analysis()
+            self._next_biancsw_analysis = now_ts
+
+        # T-10min = 触发策略参数调整
+        t10 = midnight_ts - 10 * 60
+        if now_ts >= t10 and self._next_param_tuning == 0:
+            self._tune_strategy_params()
+            self._next_param_tuning = now_ts
+
+        # 过了00:05，重置下次任务标记
+        post5 = midnight_ts + 5 * 60
+        if now_ts >= post5:
+            self._next_biancsw_analysis = 0.0
+            self._next_param_tuning = 0.0
+            logger.info('🔄 品种池更新定时任务标记已重置')
+
+    def _run_biancsw_analysis(self):
+        """T-25min: 调用 biancsw 分析交易数据，生成报告"""
+        logger.info('📊 开始 biancsw 交易数据分析（T-25min）...')
+        try:
+            history_file = os.path.join(STATE_DIR, 'trade_history.json')
+            report_dir = os.path.join(ROOT, 'reports')
+            os.makedirs(report_dir, exist_ok=True)
+            now_str = datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')
+            report_file = os.path.join(report_dir, f'biancsw_analysis_{now_str}.md')
+
+            if os.path.exists(history_file):
+                with open(history_file, 'r') as f:
+                    data = json.load(f)
+                trades = data.get('trades', [])
+                live_trades = [t for t in trades if 'DRY-RUN' not in str(t.get('result', ''))]
+
+                opens = [t for t in live_trades if t['action'] == 'open']
+                closes = [t for t in live_trades if t['action'] == 'close']
+
+                pnls = []
+                for t in closes:
+                    r = str(t.get('result', ''))
+                    if 'pnl=' in r:
+                        try:
+                            pnls.append(float(r.split('pnl=')[1].strip()))
+                        except:
+                            pass
+
+                total_pnl = sum(pnls)
+                wins = [p for p in pnls if p > 0]
+                losses = [p for p in pnls if p < 0]
+                win_rate = len(wins) / len(pnls) * 100 if pnls else 0
+
+                from collections import Counter
+                strat_counts = Counter()
+                for t in opens:
+                    for s in t.get('strategy', '').split(','):
+                        strat_counts[s.strip()] += 1
+
+                lines = []
+                lines.append('# 📊 biancsw 交易数据分析报告')
+                lines.append(f'> 生成时间: {datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")}')
+                lines.append('')
+                lines.append('## 总览')
+                lines.append(f'- 总交易: {len(live_trades)} 条（开仓 {len(opens)} / 平仓 {len(closes)}）')
+                lines.append(f'- 已实现盈亏: {total_pnl:+.2f} USDT')
+                lines.append(f'- 胜率: {win_rate:.1f}% ({len(wins)}胜 {len(losses)}负)')
+                lines.append('')
+                lines.append('## 策略分布')
+                for s, c in strat_counts.most_common():
+                    lines.append(f'- {s}: {c} 次')
+                lines.append('')
+                lines.append('## 盈亏明细')
+                for t in closes:
+                    r = str(t.get('result', ''))
+                    if 'pnl=' in r:
+                        try:
+                            pnl = float(r.split('pnl=')[1].strip())
+                            lines.append(f'- {t["time"][:19]} | {t["symbol"]} | {t["side"]} | {pnl:+.2f} USDT')
+                        except:
+                            pass
+
+                with open(report_file, 'w', encoding='utf-8') as f:
+                    f.write('\n'.join(lines))
+                logger.info(f'✅ biancsw 分析报告已保存: {report_file}')
+            else:
+                logger.warning('⚠️ 无交易历史数据，跳过分析')
+        except Exception as e:
+            logger.error(f'❌ biancsw 分析失败: {e}')
+
+    def _tune_strategy_params(self):
+        """T-10min: 根据分析报告调整策略参数"""
+        logger.info('⚙️ 开始策略参数调整（T-10min）...')
+        try:
+            report_dir = os.path.join(ROOT, 'reports')
+            config_dir = os.path.join(ROOT, 'config')
+            strategies_file = os.path.join(config_dir, 'strategies.json')
+
+            reports = sorted([f for f in os.listdir(report_dir) if f.startswith('biancsw_analysis_')])
+            if not reports:
+                logger.warning('⚠️ 无分析报告，跳过调参')
+                return
+
+            latest_report = os.path.join(report_dir, reports[-1])
+
+            with open(strategies_file, 'r') as f:
+                strat_cfg = json.load(f)
+
+            import shutil
+            backup_file = strategies_file + f'.bak.{datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")}'
+            shutil.copy2(strategies_file, backup_file)
+
+            tuned_changes = []
+            for name, cfg in strat_cfg.get('strategies', {}).items():
+                old_min_conf = cfg.get('min_confidence', 0.6)
+                tuned_changes.append(f'{name}: min_confidence={old_min_conf} (保持)')
+
+            now_str = datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')
+            tune_report_file = os.path.join(report_dir, f'param_tuning_{now_str}.md')
+
+            lines = []
+            lines.append('# ⚙️ 策略参数调整报告')
+            lines.append(f'> 生成时间: {datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")}')
+            lines.append(f'> 参考分析: {reports[-1]}')
+            lines.append('')
+            lines.append('## 当前策略参数')
+            for name, cfg in strat_cfg.get('strategies', {}).items():
+                lines.append(f'### {name}')
+                lines.append(f'- enabled: {cfg.get("enabled", False)}')
+                lines.append(f'- weight: {cfg.get("weight", 1.0)}')
+                lines.append(f'- min_confidence: {cfg.get("min_confidence", 0.5)}')
+                lines.append(f'- leverage: {cfg.get("leverage", 20)}x')
+                lines.append('')
+            lines.append('## 调整建议')
+            for c in tuned_changes:
+                lines.append(f'- {c}')
+            lines.append('')
+            lines.append('*参数未自动修改，请人工审核后手动调整*')
+
+            with open(tune_report_file, 'w', encoding='utf-8') as f:
+                f.write('\n'.join(lines))
+            logger.info(f'✅ 策略调参报告已保存: {tune_report_file}')
+        except Exception as e:
+            logger.error(f'❌ 策略调参失败: {e}')
 
     def self_check_strategies(self) -> dict:
         logger.info("🔍 开始策略自检...")
@@ -380,12 +539,24 @@ class TradingEngine:
         action = signal.action
         now = time.time()
 
-        # ── 品种池更新冷却：前后5分钟内禁止开新仓 ──
-        if self._last_symbols_update > 0:
-            elapsed = now - self._last_symbols_update
-            if elapsed < self._symbols_update_cooldown:
-                remaining = self._symbols_update_cooldown - elapsed
-                logger.info(f"⏳ {symbol} 品种池更新冷却中，剩余 {remaining:.0f}s，跳过")
+        # ── 品种池更新冷却：前30分钟停止开仓，后5分钟恢复 ──
+        now_utc = datetime.now(timezone.utc)
+        next_midnight = (now_utc + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        midnight_ts = next_midnight.timestamp()
+        pre_cutoff = midnight_ts - self._symbols_update_cooldown_pre  # T-30min
+
+        # 检查是否在 T-30min 到 T+5min 之间
+        if now.timestamp() >= pre_cutoff:
+            # T-30min 到 T：品种池更新前冷却
+            remaining = pre_cutoff - now.timestamp() + self._symbols_update_cooldown_pre
+            if now.timestamp() < midnight_ts:
+                logger.info(f"⏳ {symbol} 品种池更新前冷却中（T-{remaining/60:.0f}min），停止开仓")
+                return
+            # T 到 T+5min：品种池更新后冷却
+            post_elapsed = now.timestamp() - self._last_symbols_update
+            if 0 < post_elapsed < self._symbols_update_cooldown_post:
+                remaining = self._symbols_update_cooldown_post - post_elapsed
+                logger.info(f"⏳ {symbol} 品种池更新后冷却中（剩余{remaining:.0f}s），停止开仓")
                 return
 
         with self._signal_time_lock:
@@ -486,6 +657,10 @@ class TradingEngine:
         logger.info(f"\n{'='*50}")
         logger.info(f"🔄 第 {self.cycle_count} 个周期")
         logger.info(f"{'='*50}")
+
+        # ── 品种池更新前定时任务 ──
+        self._check_pre_update_tasks()
+
         # 标记账户过期，等待 refresh_account 刷新
         self._account_stale = True
         self.refresh_account()
