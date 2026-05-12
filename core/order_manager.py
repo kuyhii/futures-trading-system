@@ -44,12 +44,35 @@ class OrderManager:
                 return result
             result["status"] = "opened"
             result["order_id"] = order.get("orderId", 0)
-            result["fill_price"] = float(order.get("avgPrice", 0) or order.get("price", 0) or price)
-            result["executed_qty"] = float(order.get("executedQty", qty))
-            logger.info(f"✅ 开仓成功: {side.value.upper()} {symbol} {qty} @ {result['fill_price']}")
 
-            sl = self.risk.calc_stop_loss(result["fill_price"], side)
-            tp = self.risk.calc_take_profit(result["fill_price"], side)
+            # 获取实际成交价：多重回退确保不为 0
+            api_price = 0.0
+            # 1. avgPrice（币安标准格式）
+            if order.get("avgPrice") and float(order["avgPrice"]) > 0:
+                api_price = float(order["avgPrice"])
+            # 2. fills[0].price（逐笔成交）
+            elif order.get("fills") and len(order["fills"]) > 0:
+                api_price = float(order["fills"][0].get("price", 0))
+            # 3. price 字段（某些测试网格式）
+            elif order.get("price") and float(order["price"]) > 0:
+                api_price = float(order["price"])
+            # 4. 回退：输入价格
+            if api_price <= 0:
+                api_price = price
+                logger.warning(f"⚠️ API未返回成交价，使用信号价格 {price}")
+
+            result["fill_price"] = api_price
+            result["executed_qty"] = float(order.get("executedQty", qty))
+            logger.info(f"✅ 开仓成功: {side.value.upper()} {symbol} {qty} @ {api_price}")
+
+            # 验证止损止盈价格有效性
+            sl = self.risk.calc_stop_loss(api_price, side)
+            tp = self.risk.calc_take_profit(api_price, side)
+            if sl <= 0 or tp <= 0:
+                logger.error(f"❌ 止损止盈价格异常: sl={sl}, tp={tp}, entry={api_price}")
+                result["status"] = "failed"
+                result["error"] = "止损止盈价格计算异常"
+                return result
             result["stop_loss"] = sl
             result["take_profit"] = tp
             self._place_sl_tp(symbol, side, sl, tp)
@@ -130,6 +153,7 @@ class OrderManager:
                 "positionSide": "BOTH", "type": "STOP_MARKET",
                 "stopPrice": sl_price, "closePosition": "true",
                 "workingType": "CONTRACT_PRICE",
+                "algotype": "STANDARD",
             }
             sl_result = self.client._request("POST", "/fapi/v1/algoOrder", sl_params, signed=True)
             if "error" in sl_result:
@@ -142,6 +166,7 @@ class OrderManager:
                 "positionSide": "BOTH", "type": "TAKE_PROFIT_MARKET",
                 "stopPrice": tp_price, "closePosition": "true",
                 "workingType": "CONTRACT_PRICE",
+                "algotype": "STANDARD",
             }
             tp_result = self.client._request("POST", "/fapi/v1/algoOrder", tp_params, signed=True)
             if "error" in tp_result:

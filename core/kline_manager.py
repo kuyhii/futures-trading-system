@@ -274,8 +274,8 @@ def synthesize_2m_from_1m(klines_1m: List[dict]) -> List[dict]:
     """
     从 1m K 线列表合成 2m K 线列表
     
-    修复: 按 2m 时间边界对齐（偶数分钟 :00, :02, :04 ...）
-    不再简单配对 [0]+[1], [2]+[3]，而是根据 open_time 对齐到 2m 桶
+    按 2m 时间边界对齐（偶数分钟 :00, :02, :04 ...）
+    根据 open_time 对齐到 2m 桶，而非简单配对
     """
     if len(klines_1m) < 2:
         return []
@@ -296,11 +296,16 @@ def synthesize_2m_from_1m(klines_1m: List[dict]) -> List[dict]:
         # 按 open_time 排序
         group.sort(key=lambda x: x["open_time"])
         if len(group) < 2:
-            # 如果桶内只有 1 根，跳过（不完整的 2m K线）
-            continue
+            continue  # 不完整的 2m K线
         # 取桶内前两根合成
         try:
             k2m = synthesize_2m_kline(group[0], group[1])
+            # 验证时间对齐：open_time 必须是偶数分钟
+            from datetime import datetime
+            dt = datetime.fromtimestamp(k2m["open_time"] / 1000)
+            if dt.minute % 2 != 0:
+                logger.warning(f"⚠️ 2m K线时间未对齐: {dt.strftime('%H:%M')} (应为偶数分钟)")
+                continue
             result.append(k2m)
         except (KeyError, IndexError):
             continue
@@ -373,11 +378,29 @@ class KlineManager:
             # 新增品种立即加载历史数据
             for sym in added:
                 try:
+                    # 先清除旧时间戳，确保全量加载
                     with self._update_time_lock:
-                        self._last_update_time[sym] = 0  # 重置时间戳，全量加载
-                    self.initial_fetch_1m_klines(sym, limit=360)
+                        self._last_update_time[sym] = 0
+                    # 从 API 获取最近 360 根 1m K线（6小时）
+                    raw = _binance_request("/fapi/v1/klines", {
+                        "symbol": sym, "interval": "1m", "limit": 360
+                    })
+                    if isinstance(raw, dict) and "error" in raw:
+                        logger.warning(f"  {sym}: 初始加载失败 {raw['error']}")
+                        continue
+                    klines = []
+                    for item in raw:
+                        k = _parse_binance_kline(item)
+                        if k:
+                            klines.append(k)
+                    if klines:
+                        _append_klines_batch("1m", sym, klines)
+                        with self._update_time_lock:
+                            self._last_update_time[sym] = klines[-1]["open_time"]
+                        self.stats["total_fetches"] += 1
+                    # 合成 2m
                     self._synthesize_2m_for_symbol(sym)
-                    logger.info(f"  {sym}: 加载 1m+合成2m 完成")
+                    logger.info(f"  {sym}: 加载 1m+合成2m 完成 ({len(klines)} 根)")
                 except Exception as e:
                     logger.warning(f"  {sym} 初始加载失败: {e}")
         if removed:

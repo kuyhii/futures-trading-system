@@ -119,6 +119,7 @@ class TradingEngine:
         self.cycle_count = 0
         self.last_cycle_time = 0
         self.cycle_interval = 60
+        self._account_stale = True  # 标记账户数据是否新鲜
 
         self._last_symbols_update = 0.0
         self._symbols_update_interval = 86400  # 24h
@@ -252,9 +253,11 @@ class TradingEngine:
             if self.risk._daily_start_equity == 0:
                 self.risk.set_daily_start(self.account.total_equity)
             self.risk._peak_equity = max(self.risk._peak_equity, self.account.total_equity)
+            self._account_stale = False  # 数据已更新
             logger.info(f"💰 账户: 权益={self.account.total_equity:.2f} | 可用={self.account.available_balance:.2f} | 未实现盈亏={self.account.unrealized_pnl:.2f} | 持仓={len(self.account.positions)}")
         except Exception as e:
             logger.error(f"刷新账户状态失败: {e}")
+            self._account_stale = True  # 数据已过期
 
     def _calc_dry_run_pnl(self, pos: Position) -> float:
         if pos.entry_price == 0 or pos.mark_price == 0:
@@ -353,7 +356,11 @@ class TradingEngine:
 
     def _handle_buy_signal(self, signal: TradeSignal):
         symbol = signal.symbol
-        price = signal.price
+        # 获取最新价格，防止信号价格过时
+        price = self.get_current_price(symbol)
+        if price <= 0:
+            logger.warning(f"⚠️ {symbol} 获取价格失败，跳过信号")
+            return
         leverages = [self.config.get("strategies", {}).get(s, {}).get("leverage", self.risk_config["max_leverage"])
                      for s in signal.strategy.split(",")]
         leverage = max(leverages)
@@ -378,8 +385,12 @@ class TradingEngine:
 
     def _handle_sell_signal(self, signal: TradeSignal):
         symbol = signal.symbol
-        price = signal.price
-        leverages = [self.config.get("strategies", {}).get(s, {}).get("leverage", self.risk_config["max_leverage"])
+        # 获取最新价格
+        price = self.get_current_price(symbol)
+        if price <= 0:
+            logger.warning(f"⚠️ {symbol} 获取价格失败，跳过信号")
+            return
+        leverages = [self.config.get("strategies", {}).get(s, {}).get("leverage", self.risk_config["max_leverage"]
                      for s in signal.strategy.split(",")]
         leverage = max(leverages)
         for pos in self.account.positions:
@@ -428,9 +439,14 @@ class TradingEngine:
         logger.info(f"\n{'='*50}")
         logger.info(f"🔄 第 {self.cycle_count} 个周期")
         logger.info(f"{'='*50}")
+        # 标记账户过期，等待 refresh_account 刷新
+        self._account_stale = True
         self.refresh_account()
         if self.client.is_circuit_broken:
             logger.warning("🚨 API 熔断中，跳过本轮")
+            return
+        if self._account_stale:
+            logger.warning("⚠️ 账户数据过期，跳过本轮交易")
             return
         signals = self.process_signals()
         logger.info(f"📊 process_signals 返回: {len(signals)} 个信号")
