@@ -202,7 +202,7 @@ class TradingEngine:
 
         # ── 记录更新时间，触发开仓冷却 ──
         self._last_symbols_update = time.time()
-        logger.info(f"🚫 品种池更新冷却已启动：前后 {self._symbols_update_cooldown}s 内禁止开新仓")
+        logger.info(f"🚫 品种池更新冷却已启动：更新后 {self._symbols_update_cooldown_post}s 内禁止开新仓")
 
         logger.info(f"  当前监控币种: {new_symbols} ({len(new_symbols)} 个)")
         return len(new_symbols)
@@ -560,14 +560,14 @@ class TradingEngine:
         pre_cutoff = midnight_ts - self._symbols_update_cooldown_pre  # T-30min
 
         # 检查是否在 T-30min 到 T+5min 之间
-        if now.timestamp() >= pre_cutoff:
+        if now >= pre_cutoff:
             # T-30min 到 T：品种池更新前冷却
-            remaining = pre_cutoff - now.timestamp() + self._symbols_update_cooldown_pre
-            if now.timestamp() < midnight_ts:
-                logger.info(f"⏳ {symbol} 品种池更新前冷却中（T-{remaining/60:.0f}min），停止开仓")
+            if now < midnight_ts:
+                remaining = (midnight_ts - now) / 60
+                logger.info(f"⏳ {symbol} 品种池更新前冷却中（T-{remaining:.0f}min），停止开仓")
                 return
             # T 到 T+5min：品种池更新后冷却
-            post_elapsed = now.timestamp() - self._last_symbols_update
+            post_elapsed = now - self._last_symbols_update
             if 0 < post_elapsed < self._symbols_update_cooldown_post:
                 remaining = self._symbols_update_cooldown_post - post_elapsed
                 logger.info(f"⏳ {symbol} 品种池更新后冷却中（剩余{remaining:.0f}s），停止开仓")
