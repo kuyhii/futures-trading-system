@@ -3,7 +3,7 @@
   "fixed_margin_usdt": 50,
   "stop_loss_pct": 1.5,
   "take_profit_pct": 3,
-  "max_positions": 20,
+  "max_positions": 50,
   "daily_loss_limit_pct": 5,
   "max_drawdown_pct": 15,
   "trailing_stop": true,
@@ -22,7 +22,7 @@
     },
     "max_positions": {
       "enabled": true,
-      "description": "同时最多持仓 20 个合约"
+      "description": "同时最多持仓 50 个合约"
     },
     "daily_loss_limit": {
       "enabled": true,
