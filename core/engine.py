@@ -64,6 +64,7 @@ from core.models import SignalAction, PositionSide, TradeSignal, Position, Accou
 from core.strategy_engine import StrategyEngine
 from core.risk_engine import RiskEngine
 from core.order_manager import OrderManager
+from core.loop_prevention import LoopPrevention
 
 # ── 环境配置 ──
 BINANCE_API_ENV = os.environ.get("BINANCE_API_ENV", "testnet")
@@ -143,6 +144,13 @@ class TradingEngine:
         self._account_lock = threading.Lock()
         self._kline_cache_lock = threading.Lock()
         self._signal_time_lock = threading.Lock()
+
+        # 防循环系统
+        self.loop_prevention = LoopPrevention(
+            max_repeated_signal=5,
+            max_idle_cycles=10,
+            cooldown_after_break=600,
+        )
 
         self.symbols_list = [s["symbol"] for s in self.symbols_config]
         self.kline_manager = KlineManager(
@@ -564,6 +572,13 @@ class TradingEngine:
         if now - last < self.signal_cooldown:
             logger.debug(f"⏳ {symbol} 信号冷却中，跳过")
             return
+        # ── 防循环检测 ──
+        if self.loop_prevention.check_signal_loop(symbol, action.value, signal.strategy, signal.confidence):
+            return
+        if self.loop_prevention.is_in_cooldown():
+            logger.info(f"⏳ {symbol} 防循环冷却中，跳过")
+            return
+
         logger.info(f"▶️ 执行信号: {symbol} {_side_cn(action.value)} ({_strategy_cn(signal.strategy)}, {signal.confidence:.0%})")
         if action == SignalAction.BUY:
             self._handle_buy_signal(signal)
@@ -652,6 +667,7 @@ class TradingEngine:
                                                account=self.account, client=self.client)
 
     def run_cycle(self):
+        self._executed_this_cycle = 0
         self.cycle_count += 1
         self.last_cycle_time = time.time()
         logger.info(f"\n{'='*50}")
@@ -677,8 +693,12 @@ class TradingEngine:
             for sig in signals:
                 logger.info(f"  {sig.symbol}: {_side_cn(sig.action.value)} ({_strategy_cn(sig.strategy)}, {sig.confidence:.0%})")
                 self.execute_signal(sig)
+                self._executed_this_cycle += 1
         else:
             logger.info("ℹ️  无交易信号")
+        # ── 防循环：记录周期进展 ──
+        self.loop_prevention.record_cycle_progress(len(signals), self._executed_this_cycle)
+
         self._save_state()
 
     def _save_state(self):
