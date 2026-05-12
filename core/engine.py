@@ -145,6 +145,9 @@ class TradingEngine:
         self._kline_cache_lock = threading.Lock()
         self._signal_time_lock = threading.Lock()
 
+        # 风控通知去重：防止重复刷屏
+        self._position_limit_notified = False  # 仓位上限是否已通知
+
         # 防循环系统
         self.loop_prevention = LoopPrevention(
             max_repeated_signal=5,
@@ -458,6 +461,9 @@ class TradingEngine:
             if self.risk._daily_start_equity == 0:
                 self.risk.set_daily_start(self.account.total_equity)
             self.risk._peak_equity = max(self.risk._peak_equity, self.account.total_equity)
+            # 仓位下降后重置上限通知标记
+            if len(self.account.positions) < self.risk_config["max_positions"]:
+                self._position_limit_notified = False
             self._account_stale = False  # 数据已更新
             logger.info(f"💰 账户: 权益={self.account.total_equity:.2f} | 可用={self.account.available_balance:.2f} | 未实现盈亏={self.account.unrealized_pnl:.2f} | 持仓={len(self.account.positions)}")
         except Exception as e:
@@ -608,6 +614,17 @@ class TradingEngine:
         ok, reason = self.risk.can_open_position(self.account, symbol, PositionSide.LONG, qty, leverage, price)
         if not ok:
             logger.warning(f"🚫 {symbol} 做多被风控拒绝: {reason}")
+            # 已有持仓：静默过滤，不通知
+            if "已有持仓" in reason:
+                return
+            # 仓位上限：只通知一次
+            if "持仓数已达上限" in reason:
+                if not self._position_limit_notified:
+                    try: notifier.risk_warning(symbol, f"做多被拒绝: 持仓数已达上限({len(self.account.positions)}/{self.risk_config['max_positions']})", level="warning")
+                    except Exception: pass
+                    self._position_limit_notified = True
+                return
+            # 其他风控拒绝：通知
             try: notifier.risk_warning(symbol, f"做多被拒绝: {reason}", level="warning")
             except Exception: pass
             return
@@ -637,6 +654,17 @@ class TradingEngine:
         ok, reason = self.risk.can_open_position(self.account, symbol, PositionSide.SHORT, qty, leverage, price)
         if not ok:
             logger.warning(f"🚫 {symbol} 做空被风控拒绝: {reason}")
+            # 已有持仓：静默过滤，不通知
+            if "已有持仓" in reason:
+                return
+            # 仓位上限：只通知一次
+            if "持仓数已达上限" in reason:
+                if not self._position_limit_notified:
+                    try: notifier.risk_warning(symbol, f"做空被拒绝: 持仓数已达上限({len(self.account.positions)}/{self.risk_config['max_positions']})", level="warning")
+                    except Exception: pass
+                    self._position_limit_notified = True
+                return
+            # 其他风控拒绝：通知
             try: notifier.risk_warning(symbol, f"做空被拒绝: {reason}", level="warning")
             except Exception: pass
             return
