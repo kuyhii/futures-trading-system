@@ -68,7 +68,7 @@ from core.order_manager import OrderManager
 from core.loop_prevention import LoopPrevention
 
 # ── 环境配置 ──
-BINANCE_API_ENV = os.environ.get("BINANCE_API_ENV", "testnet")
+BINANCE_API_ENV = os.environ.get("BINANCE_API_ENV", "prod")
 
 if BINANCE_API_ENV == "prod":
     BINANCE_API_KEY = os.environ.get("BINANCE_PROD_API_KEY", "")
@@ -81,14 +81,18 @@ BASE_URLS = {
     "prod":    "https://fapi.binance.com",
     "testnet": "https://testnet.binancefuture.com",
 }
-BASE_URL = BASE_URLS.get(BINANCE_API_ENV, BASE_URLS["testnet"])
+BASE_URL = BASE_URLS.get(BINANCE_API_ENV, BASE_URLS["prod"])
 STREAM_URL = "fstream.binance.com" if BINANCE_API_ENV == "prod" else "stream.binancefuture.com"
 
+# 本地模拟交易模式：使用实盘数据，下单在本地模拟
+DRY_RUN = True
+INITIAL_CAPITAL = 500  # 初始资金 500 USDT
+
 MODE_LABELS = {
-    "prod": "实盘模式（真金白银）",
+    "prod": f"实盘数据+本地模拟交易（{INITIAL_CAPITAL}U）",
     "testnet": "测试网模式（模拟实盘）",
 }
-MODE_LABEL = MODE_LABELS.get(BINANCE_API_ENV, MODE_LABELS["testnet"])
+MODE_LABEL = MODE_LABELS.get(BINANCE_API_ENV, MODE_LABELS["prod"])
 IS_AUTHENTICATED = bool(BINANCE_API_KEY and BINANCE_SECRET_KEY)
 
 # ── 日志 ──
@@ -114,9 +118,13 @@ class TradingEngine:
 
         self.strategy = StrategyEngine(self.config)
         self.risk = RiskEngine(self.risk_config)
-        self.orders = OrderManager(self.client, self.risk)
+        self.orders = OrderManager(self.client, self.risk, dry_run=DRY_RUN, initial_capital=INITIAL_CAPITAL)
 
+        # 模拟交易：本地账户，初始资金由 DRY_RUN 控制
         self.account = AccountState()
+        if DRY_RUN:
+            self.account.total_equity = INITIAL_CAPITAL
+            self.account.available_balance = INITIAL_CAPITAL
         self.running = False
         self.cycle_count = 0
         self.last_cycle_time = 0

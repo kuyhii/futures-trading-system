@@ -35,7 +35,7 @@ for d in [KLINE_1M_DIR, KLINE_2M_DIR]:
     os.makedirs(d, exist_ok=True)
 
 # ── Binance API ──
-BINANCE_API_ENV = os.environ.get("BINANCE_API_ENV", "testnet")
+BINANCE_API_ENV = os.environ.get("BINANCE_API_ENV", "prod")
 
 if BINANCE_API_ENV == "prod":
     BINANCE_API_KEY = os.environ.get("BINANCE_PROD_API_KEY", "")
@@ -47,7 +47,7 @@ BASE_URLS = {
     "prod":    "https://fapi.binance.com",
     "testnet": "https://testnet.binancefuture.com",
 }
-BASE_URL = BASE_URLS.get(BINANCE_API_ENV, BASE_URLS["testnet"])
+BASE_URL = BASE_URLS.get(BINANCE_API_ENV, BASE_URLS["prod"])
 
 # ── K线字段常量 ──
 KLINE_FIELDS = ["open_time", "open", "high", "low", "close", "volume", "close_time"]
@@ -69,12 +69,12 @@ def _load_env():
 
 _load_env()
 # Re-read after loading .env
-BINANCE_API_ENV = os.environ.get("BINANCE_API_ENV", "testnet")
+BINANCE_API_ENV = os.environ.get("BINANCE_API_ENV", "prod")
 if BINANCE_API_ENV == "prod":
     BINANCE_API_KEY = os.environ.get("BINANCE_PROD_API_KEY", "")
 else:
     BINANCE_API_KEY = os.environ.get("BINANCE_TESTNET_API_KEY", "")
-BASE_URL = BASE_URLS.get(BINANCE_API_ENV, BASE_URLS["testnet"])
+BASE_URL = BASE_URLS.get(BINANCE_API_ENV, BASE_URLS["prod"])
 
 
 def _binance_request(path: str, params: dict = None, retries: int = 3) -> dict:
