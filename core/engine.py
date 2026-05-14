@@ -614,12 +614,10 @@ class TradingEngine:
                                            account=self.account, client=self.client)
                 break
 
-        # 反转信号：保证金加倍（100U），加大反转力度
-        margin = 100 if is_reverse else None
-        qty = self.risk.calc_position_size(self.account, price, leverage, margin_usdt=margin)
+        # 开仓保证金统一使用账户总金额的 4%（由 risk.json position_margin_pct 控制）
+        qty = self.risk.calc_position_size(self.account, price, leverage)
         qty = self.client.adjust_quantity(symbol, qty)
-        ok, reason = self.risk.can_open_position(self.account, symbol, PositionSide.LONG, qty, leverage, price,
-                                                    margin_usdt=margin)
+        ok, reason = self.risk.can_open_position(self.account, symbol, PositionSide.LONG, qty, leverage, price)
         if not ok:
             logger.warning(f"🚫 {symbol} 做多被风控拒绝: {reason}")
             # 已有持仓：静默过滤，不通知
@@ -662,12 +660,10 @@ class TradingEngine:
                                            account=self.account, client=self.client)
                 break
 
-        # 反转信号：保证金加倍（100U），加大反转力度
-        margin = 100 if is_reverse else None
-        qty = self.risk.calc_position_size(self.account, price, leverage, margin_usdt=margin)
+        # 开仓保证金统一使用账户总金额的 4%（由 risk.json position_margin_pct 控制）
+        qty = self.risk.calc_position_size(self.account, price, leverage)
         qty = self.client.adjust_quantity(symbol, qty)
-        ok, reason = self.risk.can_open_position(self.account, symbol, PositionSide.SHORT, qty, leverage, price,
-                                                    margin_usdt=margin)
+        ok, reason = self.risk.can_open_position(self.account, symbol, PositionSide.SHORT, qty, leverage, price)
         if not ok:
             logger.warning(f"🚫 {symbol} 做空被风控拒绝: {reason}")
             # 已有持仓：静默过滤，不通知

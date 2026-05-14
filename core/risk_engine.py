@@ -36,11 +36,12 @@ class RiskEngine:
         if leverage > self.cfg["max_leverage"]:
             return False, f"杠杆 {leverage}x 超过上限 {self.cfg['max_leverage']}x"
         margin_needed_check = price * quantity / leverage
-        # 反转信号允许更高保证金（默认100U），普通信号使用固定保证金（50U）
+        # 开仓保证金为账户总金额的 position_margin_pct（默认4%）
         if margin_usdt is not None:
             allowed_margin = margin_usdt
         else:
-            allowed_margin = self.cfg.get("fixed_margin_usdt", 50)
+            margin_pct = self.cfg.get("position_margin_pct", 4)
+            allowed_margin = account.total_equity * margin_pct / 100
         if margin_needed_check > allowed_margin * 1.05:
             return False, f"保证金 {margin_needed_check:.2f} 超过允许值 {allowed_margin} USDT"
         if self._daily_start_equity > 0:
@@ -92,9 +93,10 @@ class RiskEngine:
                            leverage: int, risk_pct: float = None,
                            margin_usdt: float = None) -> float:
         if margin_usdt is not None:
-            fixed_margin = margin_usdt
+            margin = margin_usdt
         else:
-            fixed_margin = self.cfg.get("fixed_margin_usdt", 50)
-        nominal = fixed_margin * leverage
+            margin_pct = self.cfg.get("position_margin_pct", 4)
+            margin = account.total_equity * margin_pct / 100
+        nominal = margin * leverage
         quantity = nominal / price
         return quantity
