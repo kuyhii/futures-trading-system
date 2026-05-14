@@ -5,7 +5,7 @@ core/kline_manager.py - K线数据管理器
 职责:
   1. 持续采集1分钟K线（从 Binance API）
   2. 合成2分钟K线
-  3. 数据清理（保留6小时）
+  3. 数据清理（保留24小时）
   4. 提供本地数据读取接口
 
 存储格式: JSONL（每行一根K线），按品种分文件
@@ -324,7 +324,7 @@ class KlineManager:
     功能:
       1. 从 Binance API 采集 1m K 线（每 60 秒）
       2. 合成 2m K 线
-      3. 数据清理（每 12 小时，保留 6 小时）
+      3. 数据清理（每 12 小时，保留 24 小时）
       4. 提供 get_klines_1m / get_klines_2m 读取接口
     """
 

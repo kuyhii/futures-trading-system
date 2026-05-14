@@ -140,7 +140,7 @@ class TradingEngine:
 
         self._kline_cache: Dict[str, List[dict]] = {}
         self._last_signal_time: Dict[str, float] = {}
-        self.signal_cooldown = 300
+        self.signal_cooldown = self.risk_config.get("signal_cooldown_seconds", 300)
 
         self._account_lock = threading.Lock()
         self._kline_cache_lock = threading.Lock()

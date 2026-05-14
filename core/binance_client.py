@@ -28,6 +28,10 @@ class BinanceClient:
         self.circuit_breaker = False
         self._circuit_cooldown_ms = 60_000
         self._max_circuit_cooldown_ms = 900_000
+        # exchange_info 缓存（避免 adjust_quantity/adjust_price 频繁全量拉取）
+        self._exchange_info_cache = None
+        self._exchange_info_cache_time = 0
+        self._exchange_info_cache_ttl = 300  # 5分钟
 
     def _sign(self, params: dict) -> dict:
         if not self.api_secret:
@@ -218,7 +222,16 @@ class BinanceClient:
         return self._request("GET", "/fapi/v1/userTrades", {"symbol": symbol, "limit": limit}, signed=True)
 
     def get_symbol_info(self, symbol: str) -> Optional[dict]:
-        info = self.exchange_info()
+        import time
+        now = time.time()
+        # 使用缓存，避免每次调用都全量拉取 exchange_info
+        if self._exchange_info_cache and (now - self._exchange_info_cache_time) < self._exchange_info_cache_ttl:
+            info = self._exchange_info_cache
+        else:
+            info = self.exchange_info()
+            if isinstance(info, dict) and ("error" not in info) and "symbols" in info:
+                self._exchange_info_cache = info
+                self._exchange_info_cache_time = now
         if isinstance(info, dict) and ("error" in info or "symbols" not in info):
             return None
         for s in info.get("symbols", []):

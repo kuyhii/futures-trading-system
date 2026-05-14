@@ -45,6 +45,8 @@ class StrategyEngine:
                     result = sig(candles, cfg)
                     if result and result.action != SignalAction.HOLD:
                         signals.append(result)
+                # 成功执行，清零错误计数
+                self._strategy_errors[name] = 0
             except Exception as e:
                 self._strategy_errors[name] = self._strategy_errors.get(name, 0) + 1
                 err_count = self._strategy_errors[name]

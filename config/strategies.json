@@ -19,7 +19,7 @@
   },
   "signal_aggregation": {
     "method": "weighted_vote",
-    "min_agreement_count": 2,
+    "min_agreement_count": 1,
     "conflict_resolution": "highest_confidence",
     "same_symbol_max_signals": 1
   },
