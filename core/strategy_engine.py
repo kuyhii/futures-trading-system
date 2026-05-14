@@ -276,7 +276,7 @@ class StrategyEngine:
         adx_ok = adx_data and adx_data["adx"] >= 25
 
         details = {
-            "dual_thust_range": round(dt_range, 4),
+            "dual_thrust_range": round(dt_range, 4),
             "upper": round(upper, 4), "lower": round(lower, 4),
             "cci": round(cci_val, 2) if cci_val else None,
             "emv": round(emv_val, 6) if emv_val else None,
