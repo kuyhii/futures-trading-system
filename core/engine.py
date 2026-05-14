@@ -57,7 +57,7 @@ def load_env():
 load_env()
 
 # ── 导入模块 ──
-from core.notify import notifier, _side_cn, _strategy_cn
+from core.notify import notifier, _side_cn, _strategy_cn, _fmt_price
 from core.kline_manager import KlineManager
 from core.binance_client import BinanceClient
 from core.models import SignalAction, PositionSide, TradeSignal, Position, AccountState
@@ -908,7 +908,7 @@ class TradingEngine:
         print(f"持仓数: {len(self.account.positions)}")
         for pos in self.account.positions:
             pnl = pos.pnl_pct()
-            print(f"  {pos.symbol}: {pos.side.value.upper()} {pos.quantity} @ {pos.entry_price} | 现价={pos.mark_price} | 盈亏={pnl:.2f}% | 杠杆={pos.leverage}x")
+            print(f"  {pos.symbol}: {pos.side.value.upper()} {pos.quantity} @ {_fmt_price(pos.entry_price)} | 现价={_fmt_price(pos.mark_price)} | 盈亏={pnl:.2f}% | 杠杆={pos.leverage}x")
         print(f"\n策略状态:")
         for name, info in self._strategy_status.items():
             print(f"  {name}: {info['status']} (启用={info['enabled']}, 错误={info['errors']})")

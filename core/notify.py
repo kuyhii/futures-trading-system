@@ -59,6 +59,24 @@ def _strategy_cn(strategy: str) -> str:
     parts = [STRATEGY_MAP.get(s.strip().lower(), s.strip()) for s in strategy.split(",")]
     return "，".join(parts)
 
+def _fmt_price(price: float) -> str:
+    """按价格大小区间自动调整小数位数，保证显示整洁"""
+    p = abs(price)
+    if p >= 10000:
+        return f"{price:,.2f}"
+    elif p >= 1000:
+        return f"{price:,.2f}"
+    elif p >= 100:
+        return f"{price:,.2f}"
+    elif p >= 10:
+        return f"{price:,.3f}"
+    elif p >= 1:
+        return f"{price:,.4f}"
+    elif p >= 0.01:
+        return f"{price:,.5f}"
+    else:
+        return f"{price:,.6f}"
+
 
 class Notifier:
     """统一通知管理器（异步发送，不阻塞主循环）"""
@@ -134,14 +152,14 @@ class Notifier:
             f"币种: <b>{symbol}</b>\n"
             f"方向: {side_cn}\n"
             f"数量: {quantity:.6f}\n"
-            f"价格: {price:,.2f} USDT\n"
+            f"价格: {_fmt_price(price)} USDT\n"
             f"杠杆: {leverage}x\n"
             f"策略: {strategy_cn}\n"
         )
         if stop_loss:
-            text += f"止损: {stop_loss:,.2f}\n"
+            text += f"止损: {_fmt_price(stop_loss)}\n"
         if take_profit:
-            text += f"止盈: {take_profit:,.2f}\n"
+            text += f"止盈: {_fmt_price(take_profit)}\n"
         self.send_sync(text)
 
     def trade_closed(self, symbol: str, side: str, quantity: float,
@@ -164,7 +182,7 @@ class Notifier:
             f"{mode} {emoji} <b>平仓</b>\n"
             f"币种: <b>{symbol}</b>\n"
             f"方向: {side_cn}\n"
-            f"入场: {entry_price:,.2f} → 出场: {exit_price:,.2f}\n"
+            f"入场: {_fmt_price(entry_price)} → 出场: {_fmt_price(exit_price)}\n"
             f"盈亏: <b>{pnl:+.2f} USDT ({pnl_pct:+.2f}%)</b>\n"
             f"原因: {reason_cn}"
         )
@@ -188,7 +206,7 @@ class Notifier:
             f"方向: {side_cn}\n"
             f"策略: {strategy_cn}\n"
             f"置信度: {confidence:.0%}\n"
-            f"价格: {price:,.2f}"
+            f"价格: {_fmt_price(price)}"
         )
         self.send_sync(text)
 

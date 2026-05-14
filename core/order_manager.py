@@ -9,7 +9,7 @@ import time
 import logging
 from typing import Dict
 from .models import Position, PositionSide, AccountState
-from .notify import notifier
+from .notify import notifier, _fmt_price
 
 logger = logging.getLogger("engine.order_manager")
 
@@ -59,17 +59,17 @@ class OrderManager:
             # 4. 回退：输入价格
             if api_price <= 0:
                 api_price = price
-                logger.warning(f"⚠️ API未返回成交价，使用信号价格 {price}")
+                logger.warning(f"⚠️ API未返回成交价，使用信号价格 {_fmt_price(price)}")
 
             result["fill_price"] = api_price
             result["executed_qty"] = float(order.get("executedQty", quantity))
-            logger.info(f"✅ 开仓成功: {side.value.upper()} {symbol} {quantity} @ {api_price}")
+            logger.info(f"✅ 开仓成功: {side.value.upper()} {symbol} {quantity} @ {_fmt_price(api_price)}")
 
             # 验证止损止盈价格有效性
             sl = self.risk.calc_stop_loss(api_price, side)
             tp = self.risk.calc_take_profit(api_price, side)
             if sl <= 0 or tp <= 0:
-                logger.error(f"❌ 止损止盈价格异常: sl={sl}, tp={tp}, entry={api_price}")
+                logger.error(f"❌ 止损止盈价格异常: sl={_fmt_price(sl)}, tp={_fmt_price(tp)}, entry={_fmt_price(api_price)}")
                 result["status"] = "failed"
                 result["error"] = "止损止盈价格计算异常"
                 return result
@@ -120,7 +120,7 @@ class OrderManager:
             result["status"] = "closed"
             result["fill_price"] = float(order.get("avgPrice", 0))
             result["pnl"] = float(pos.get("unRealizedProfit", 0))
-            logger.info(f"✅ 平仓成功: {symbol} {qty} @ {result['fill_price']} "
+            logger.info(f"✅ 平仓成功: {symbol} {qty} @ {_fmt_price(result['fill_price'])} "
                        f"(盈亏: {result['pnl']:.4f}, 原因: {reason})")
             self._record_trade("close", symbol,
                               "long" if pos_amt > 0 else "short", qty,
@@ -166,7 +166,7 @@ class OrderManager:
             if "error" in sl_result:
                 logger.warning(f"⚠️ 止损设置失败: {sl_result.get('error', '')}")
             else:
-                logger.info(f"🛡 止损已设置: {sl_price}")
+                logger.info(f"🛡 止损已设置: {_fmt_price(sl_price)}")
 
             tp_params = {
                 "symbol": symbol,
@@ -182,7 +182,7 @@ class OrderManager:
             if "error" in tp_result:
                 logger.warning(f"⚠️ 止盈设置失败: {tp_result.get('error', '')}")
             else:
-                logger.info(f"🎯 止盈已设置: {tp_price}")
+                logger.info(f"🎯 止盈已设置: {_fmt_price(tp_price)}")
         except Exception as e:
             logger.error(f"设置止损止盈异常: {e}")
 
