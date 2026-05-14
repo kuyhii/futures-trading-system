@@ -55,19 +55,17 @@ class StrategyEngine:
         return signals
 
     def aggregate_signals(self, signals: List[TradeSignal], symbol: str) -> Optional[TradeSignal]:
-        """信号聚合：加权投票 + 冲突检测 + 最少共识过滤"""
+        """信号聚合：加权投票 + 冲突检测 + 最少共识过滤
+        
+        关键修复：min_agreement_count 检查同方向策略数，而非总信号数
+        冲突场景下，即使有2个策略发出信号（方向相反），也不算共识
+        """
         if not signals:
             return None
 
         strategy_weights = {}
         for name, cfg in self.strategies_cfg.items():
             strategy_weights[name] = cfg.get("weight", 1.0)
-
-        # 最少共识数过滤：只有1个策略信号且配置要求>=2时直接拒绝
-        min_agree = self.agg_cfg.get("min_agreement_count", 1)
-        if len(signals) < min_agree:
-            logger.info(f"🚫 {symbol} 仅 {len(signals)} 个策略信号，低于最低共识数 {min_agree}，已过滤")
-            return None
 
         buy_signals = [s for s in signals if s.action == SignalAction.BUY]
         sell_signals = [s for s in signals if s.action == SignalAction.SELL]
@@ -87,6 +85,14 @@ class StrategyEngine:
         else:
             winner_signals = buy_signals or sell_signals
             loser_signals = []
+
+        # 最少共识数过滤：检查同方向策略数，而非总信号数
+        min_agree = self.agg_cfg.get("min_agreement_count", 1)
+        if len(winner_signals) < min_agree:
+            direction = "做多" if winner_signals[0].action == SignalAction.BUY else "做空"
+            logger.info(f"🚫 {symbol} {direction} 仅 {len(winner_signals)} 个策略同意，"
+                       f"低于最低共识数 {min_agree}，已过滤")
+            return None
 
         total_weight = sum(strategy_weights.get(s.strategy, 1.0) for s in winner_signals)
         weighted_conf = sum(
