@@ -91,9 +91,28 @@ class RiskEngine:
 
     def calc_position_size(self, account: AccountState, price: float,
                            leverage: int, risk_pct: float = None,
-                           margin_usdt: float = None) -> float:
+                           margin_usdt: float = None,
+                           atr: float = None) -> float:
+        """仓位计算
+        - 默认：账户总金额的 position_margin_pct%
+        - ATR 模式（海龟法则）：根据波动率自动调整仓位
+          unit = (账户 × atr_risk_pct%) / ATR × price
+          高波动自动减仓，低波动正常开仓，实现风险标准化
+          上限不超过 position_margin_pct%
+        """
         if margin_usdt is not None:
             margin = margin_usdt
+        elif atr is not None and atr > 0:
+            # 海龟 ATR 仓位管理
+            # 海龟规则: 1 unit 的仓位，当价格波动 1 ATR 时，账户盈亏 = 账户 × atr_risk_pct%
+            # quantity = (account × atr_risk_pct%) / ATR
+            risk_pct = risk_pct or self.cfg.get("atr_risk_pct", 1)
+            risk_dollars = account.total_equity * risk_pct / 100
+            quantity = risk_dollars / atr
+            margin = quantity * price / leverage
+            # 上限不超过 position_margin_pct
+            max_margin = account.total_equity * self.cfg.get("position_margin_pct", 4) / 100
+            margin = min(margin, max_margin)
         else:
             margin_pct = self.cfg.get("position_margin_pct", 4)
             margin = account.total_equity * margin_pct / 100

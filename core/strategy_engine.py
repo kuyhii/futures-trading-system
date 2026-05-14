@@ -231,7 +231,7 @@ class StrategyEngine:
                                      {**details, "reason": "overbought+above_upper", "stoch_confirm": stoch_overbought})
         return None
 
-    # ── 策略 3: 突破策略 ──
+    # ── 策略 3: 突破策略（Dual Thrust + CCI + EMV 增强） ──
     def _strategy_breakout(self, candles: List[dict], cfg: dict) -> Optional[TradeSignal]:
         from .indicators import Indicators
         lookback = cfg.get("lookback_periods", 20)
@@ -242,51 +242,74 @@ class StrategyEngine:
         lows = [c["low"] for c in candles]
         volumes = [c["volume"] for c in candles]
         price = closes[-1]
-        # 修复：用前 lookback 根的最高/最低（不含当前蜡烛），否则突破时 highest=当前high >= close 永远不触发
-        highest = Indicators.highest(highs[:-1], lookback)
-        lowest = Indicators.lowest(lows[:-1], lookback)
+        prev_price = closes[-2]
+        prev_open = candles[-2]["open"]
         vol_ma = Indicators.volume_ma(volumes, 20)
-        if highest is None or lowest is None:
+        vol_confirm = (not vol_ma) or (volumes[-1] > vol_ma * 1.3)
+        if not vol_confirm:
+            return None  # 量不确认，直接过滤
+
+        # ── Dual Thrust 通道（替代简单高低点） ──
+        dt = Indicators.dual_thrust_range(candles, lookback)
+        if dt is None:
             return None
-        # ADX 趋势强度过滤：ADX < 25 震荡期突破多为假突破
+        dt_range = dt["range"]
+        k1 = cfg.get("dual_thrust_k1", 0.5)  # 上轨系数
+        k2 = cfg.get("dual_thrust_k2", 0.5)  # 下轨系数
+        upper = prev_open + k1 * dt_range
+        lower = prev_open - k2 * dt_range
+
+        # ── CCI 趋势启动确认 ──
+        cci_period = self.indicators_cfg.get("cci_period", 14)
+        cci_val = Indicators.cci(candles, cci_period)
+        cci_long_ok = cci_val is not None and cci_val > 100  # CCI>100 多头强势
+        cci_short_ok = cci_val is not None and cci_val < -100  # CCI<-100 空头强势
+
+        # ── EMV 量价确认（替代 OBV） ──
+        emv_period = self.indicators_cfg.get("emv_period", 14)
+        emv_val = Indicators.emv(candles, emv_period)
+        emv_long_ok = emv_val is not None and emv_val > 0  # 价格上涨轻松
+        emv_short_ok = emv_val is not None and emv_val < 0  # 价格下跌轻松
+
+        # ── ADX 趋势强度 ──
         adx_data = Indicators.adx(candles)
         adx_ok = adx_data and adx_data["adx"] >= 25
-        # OBV 能量潮：突破方向需要资金流配合
-        obv = Indicators.obv(candles)
-        obv_confirm = False
-        if obv and len(obv) >= 5:
-            recent_obv = obv[-5:]
-            obv_confirm = recent_obv[-1] > recent_obv[0]  # OBV 上升 = 资金流入
-        details = {"highest": round(highest, 2), "lowest": round(lowest, 2),
-                   "current_price": price, "lookback": lookback}
+
+        details = {
+            "dual_thust_range": round(dt_range, 4),
+            "upper": round(upper, 4), "lower": round(lower, 4),
+            "cci": round(cci_val, 2) if cci_val else None,
+            "emv": round(emv_val, 6) if emv_val else None,
+            "current_price": price,
+        }
         if adx_data:
             details["adx"] = adx_data["adx"]
-        details["obv_confirm"] = obv_confirm
-        prev_price = closes[-2]
-        vol_confirm = (not vol_ma) or (volumes[-1] > vol_ma * 1.3)
-        if prev_price < highest and price >= highest:
-            # 量确认 + ADX + OBV 三重确认
-            if vol_confirm and adx_ok and obv_confirm:
-                conf = 0.85
-            elif vol_confirm and (adx_ok or obv_confirm):
-                conf = 0.7
-            elif vol_confirm:
-                conf = 0.6
+
+        # ── 突破上轨做多 ──
+        if prev_price < upper and price >= upper:
+            confirm_count = sum([adx_ok, cci_long_ok, emv_long_ok])
+            if confirm_count >= 3:
+                conf = 0.88
+            elif confirm_count >= 2:
+                conf = 0.72
             else:
-                conf = 0.5
+                conf = 0.58
+            details["confirm_count"] = confirm_count
             return self._make_signal(SignalAction.BUY, "breakout", conf, price,
-                                     {**details, "breakout": "upper", "volume_confirm": vol_confirm, "adx_ok": adx_ok})
-        if prev_price > lowest and price <= lowest:
-            obv_down = obv and len(obv) >= 5 and obv[-1] < obv[-5]  # OBV 下降 = 资金流出
-            details["obv_down"] = obv_down
-            if vol_confirm and adx_ok and obv_down:
-                conf = 0.85
-            elif vol_confirm and (adx_ok or obv_down):
-                conf = 0.7
-            elif vol_confirm:
-                conf = 0.6
+                                     {**details, "breakout": "dual_thrust_upper",
+                                      "adx_ok": adx_ok, "cci_ok": cci_long_ok, "emv_ok": emv_long_ok})
+
+        # ── 突破下轨做空 ──
+        if prev_price > lower and price <= lower:
+            confirm_count = sum([adx_ok, cci_short_ok, emv_short_ok])
+            if confirm_count >= 3:
+                conf = 0.88
+            elif confirm_count >= 2:
+                conf = 0.72
             else:
-                conf = 0.5
+                conf = 0.58
+            details["confirm_count"] = confirm_count
             return self._make_signal(SignalAction.SELL, "breakout", conf, price,
-                                     {**details, "breakout": "lower", "volume_confirm": vol_confirm, "adx_ok": adx_ok})
+                                     {**details, "breakout": "dual_thrust_lower",
+                                      "adx_ok": adx_ok, "cci_ok": cci_short_ok, "emv_ok": emv_short_ok})
         return None

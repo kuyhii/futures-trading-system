@@ -120,7 +120,7 @@ class Indicators:
         return total_vp / total_v
 
     # ============================================================
-    # 新增指标
+    # 已有增强指标
     # ============================================================
 
     @staticmethod
@@ -130,7 +130,6 @@ class Indicators:
         """
         if len(candles) < period * 2 + 1:
             return None
-        # Step 1: 计算 TR, +DM, -DM
         trs, plus_dms, minus_dms = [], [], []
         for i in range(1, len(candles)):
             high = candles[i]["high"]
@@ -144,11 +143,9 @@ class Indicators:
             trs.append(tr)
             plus_dms.append(plus_dm)
             minus_dms.append(minus_dm)
-        # Step 2: Wilders 平滑（前 period 个值的和作为初始值）
         atr = sum(trs[:period])
         plus_dm_smooth = sum(plus_dms[:period])
         minus_dm_smooth = sum(minus_dms[:period])
-        # Step 3: 遍历计算
         dx_values = []
         for i in range(period, len(trs)):
             atr = atr - atr / period + trs[i]
@@ -167,7 +164,6 @@ class Indicators:
         if len(dx_values) < period:
             return None
         adx = sum(dx_values[-period:]) / period
-        # 最后的 +DI / -DI
         if atr == 0:
             return {"adx": adx, "plus_di": 0, "minus_di": 0}
         return {
@@ -178,9 +174,7 @@ class Indicators:
 
     @staticmethod
     def stochastic(candles: List[dict], k_period: int = 14, d_period: int = 3) -> Optional[dict]:
-        """KD 随机指标
-        返回 {"k": float, "d": float} 或 None
-        """
+        """KD 随机指标 — 返回 {"k": float, "d": float} 或 None"""
         if len(candles) < k_period + d_period - 1:
             return None
         k_values = []
@@ -197,14 +191,11 @@ class Indicators:
             return None
         d_val = sum(k_values[-d_period:]) / d_period
         k_raw = k_values[-1]
-        # 钳制到 0-100 范围，防止极端数据越界
         return {"k": round(max(0, min(100, k_raw)), 2), "d": round(max(0, min(100, d_val)), 2)}
 
     @staticmethod
     def obv(candles: List[dict]) -> Optional[List[float]]:
-        """能量潮 (On-Balance Volume)
-        返回 OBV 序列（长度 = len(candles) - 1）或 None
-        """
+        """能量潮 (On-Balance Volume) — 返回 OBV 序列或 None"""
         if len(candles) < 2:
             return None
         obv = [0.0]
@@ -240,3 +231,74 @@ class Indicators:
         for p in closes[period:]:
             ema = (p - ema) * mult + ema
         return ema
+
+    # ============================================================
+    # V4 新增指标 — ea-python 精华提取
+    # ============================================================
+
+    @staticmethod
+    def cci(candles: List[dict], period: int = 14) -> Optional[float]:
+        """CCI 顺势指标 (Commodity Channel Index)
+        CCI > +100 → 多头强势（趋势启动）
+        CCI < -100 → 空头强势（趋势启动）
+        用于突破策略的趋势确认过滤器
+        """
+        if len(candles) < period:
+            return None
+        tp = [(c["high"] + c["low"] + c["close"]) / 3 for c in candles[-period:]]
+        mean_tp = sum(tp) / len(tp)
+        mean_dev = sum(abs(x - mean_tp) for x in tp) / len(tp)
+        if mean_dev == 0:
+            return 0.0
+        return round((tp[-1] - mean_tp) / (0.015 * mean_dev), 2)
+
+    @staticmethod
+    def emv(candles: List[dict], period: int = 14) -> Optional[float]:
+        """EMV 简易波动指标 (Ease of Movement)
+        量价复合指标，比 OBV 更能反映趋势中的量能效率
+        EMV > 0 → 价格上涨轻松（多头趋势）
+        EMV < 0 → 价格下跌轻松（空头趋势）
+        用于突破策略的量能确认
+        """
+        if len(candles) < period + 1:
+            return None
+        em_values = []
+        for i in range(1, len(candles)):
+            high = candles[i]["high"]
+            low = candles[i]["low"]
+            prev_high = candles[i - 1]["high"]
+            prev_low = candles[i - 1]["low"]
+            volume = candles[i]["volume"]
+            if volume == 0:
+                continue
+            mid_move = (high + low) / 2 - (prev_high + prev_low) / 2
+            box_ratio = (high - low) / volume
+            em_values.append(mid_move * box_ratio)
+        if len(em_values) < period:
+            return None
+        return round(sum(em_values[-period:]), 6)
+
+    @staticmethod
+    def dual_thrust_range(candles: List[dict], window: int = 20) -> Optional[dict]:
+        """Dual Thrust 通道范围计算
+        HH = window根最高价, LL = window根最低价
+        HC = window根收盘最高, LC = window根收盘最低
+        Range = max(HH-LC, HC-LL) — 比简单高低点更反映真实波动
+        上轨 = Open + K1*Range, 下轨 = Open - K2*Range
+        用于突破策略的通道计算
+        """
+        if len(candles) < window + 1:
+            return None
+        window_candles = candles[-(window + 1):-1]  # 不含当前蜡烛
+        highs = [c["high"] for c in window_candles]
+        lows = [c["low"] for c in window_candles]
+        closes = [c["close"] for c in window_candles]
+        if not highs:
+            return None
+        hh = max(highs)
+        ll = min(lows)
+        hc = max(closes)
+        lc = min(closes)
+        rng = max(hh - lc, hc - ll)
+        return {"range": round(rng, 8), "hh": round(hh, 8), "ll": round(ll, 8),
+                "hc": round(hc, 8), "lc": round(lc, 8)}

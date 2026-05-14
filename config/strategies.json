@@ -13,7 +13,9 @@
     "macd_fast": 12,
     "macd_slow": 26,
     "macd_signal": 9,
-    "atr_period": 14
+    "atr_period": 14,
+    "cci_period": 14,
+    "emv_period": 14
   },
   "signal_aggregation": {
     "method": "weighted_vote",
@@ -44,11 +46,13 @@
       "enabled": true,
       "weight": 0.9,
       "priority": 3,
-      "description": "突破 N 周期高低点 + 成交量确认",
+      "description": "Dual Thrust 通道突破 + CCI 趋势确认 + EMV 量价确认",
       "lookback_periods": 20,
+      "dual_thrust_k1": 0.5,
+      "dual_thrust_k2": 0.5,
       "timeframe": "2m",
       "leverage": 20,
-      "min_confidence": 0.56
+      "min_confidence": 0.58
     }
   }
 }
