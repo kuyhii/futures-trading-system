@@ -73,7 +73,9 @@ STABLECOINS = {
 
 # 手动排除品种（永不加入品种池）
 EXCLUDE_SYMBOLS = {
-    "BNB",  # 用户手动排除
+    "BNB",     # 用户手动排除
+    "XAU",     # 贵金属：黄金
+    "XAG",     # 贵金属：白银
 }
 
 # API URLs
@@ -86,12 +88,12 @@ API_URLS = {
 VOLUME_THRESHOLD = 80_000_000  # 8000万 USDT
 PROD_TOP_N = 10    # 实盘涨幅/跌幅前N
 TESTNET_TOP_N = 30 # 模拟盘涨幅/跌幅前N
-MAX_SYMBOLS = 30   # 品种池上限（确保60秒内可完成全量分析）
+MAX_SYMBOLS = 35   # 品种池上限（确保60秒内可完成全量分析）
 
 
-def is_stablecoin(base: str) -> bool:
-    """判断一个基础币种是否为稳定币"""
-    return base.upper() in STABLECOINS or base.upper() == "BNB"
+def is_excluded(base: str) -> bool:
+    """判断一个基础币种是否为稳定币或在排除列表中"""
+    return base.upper() in STABLECOINS or base.upper() in EXCLUDE_SYMBOLS
 
 
 def load_api_keys() -> dict:
@@ -147,7 +149,7 @@ def filter_symbols(tickers: list, env_label: str = "") -> list:
             continue
 
         base = symbol[:-4]
-        if is_stablecoin(base):
+        if is_excluded(base):
             excluded += 1
             continue
 
