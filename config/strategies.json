@@ -17,7 +17,7 @@
   },
   "signal_aggregation": {
     "method": "weighted_vote",
-    "min_agreement_count": 1,
+    "min_agreement_count": 2,
     "conflict_resolution": "highest_confidence",
     "same_symbol_max_signals": 1
   },
@@ -48,7 +48,7 @@
       "lookback_periods": 20,
       "timeframe": "2m",
       "leverage": 20,
-      "min_confidence": 0.5
+      "min_confidence": 0.56
     }
   }
 }

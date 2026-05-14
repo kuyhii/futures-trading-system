@@ -26,7 +26,8 @@ class RiskEngine:
 
     def can_open_position(self, account: AccountState, symbol: str,
                           side: PositionSide, quantity: float,
-                          leverage: int, price: float) -> Tuple[bool, str]:
+                          leverage: int, price: float,
+                          margin_usdt: float = None) -> Tuple[bool, str]:
         if len(account.positions) >= self.cfg["max_positions"]:
             return False, f"持仓数已达上限 ({len(account.positions)}/{self.cfg['max_positions']})"
         for p in account.positions:
@@ -35,9 +36,13 @@ class RiskEngine:
         if leverage > self.cfg["max_leverage"]:
             return False, f"杠杆 {leverage}x 超过上限 {self.cfg['max_leverage']}x"
         margin_needed_check = price * quantity / leverage
-        fixed_margin = self.cfg.get("fixed_margin_usdt", 50)
-        if margin_needed_check > fixed_margin * 1.01:
-            return False, f"保证金 {margin_needed_check:.2f} 超过固定保证金 {fixed_margin} USDT"
+        # 反转信号允许更高保证金（默认100U），普通信号使用固定保证金（50U）
+        if margin_usdt is not None:
+            allowed_margin = margin_usdt
+        else:
+            allowed_margin = self.cfg.get("fixed_margin_usdt", 50)
+        if margin_needed_check > allowed_margin * 1.05:
+            return False, f"保证金 {margin_needed_check:.2f} 超过允许值 {allowed_margin} USDT"
         if self._daily_start_equity > 0:
             daily_pnl_pct = (account.total_equity - self._daily_start_equity) / self._daily_start_equity * 100
             if daily_pnl_pct < -self.cfg["daily_loss_limit_pct"]:
@@ -84,8 +89,12 @@ class RiskEngine:
             return round(entry_price * (1 - tp_pct), 8)
 
     def calc_position_size(self, account: AccountState, price: float,
-                           leverage: int, risk_pct: float = None) -> float:
-        fixed_margin = self.cfg.get("fixed_margin_usdt", 50)
+                           leverage: int, risk_pct: float = None,
+                           margin_usdt: float = None) -> float:
+        if margin_usdt is not None:
+            fixed_margin = margin_usdt
+        else:
+            fixed_margin = self.cfg.get("fixed_margin_usdt", 50)
         nominal = fixed_margin * leverage
         quantity = nominal / price
         return quantity

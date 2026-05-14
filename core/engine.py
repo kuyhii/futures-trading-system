@@ -603,15 +603,23 @@ class TradingEngine:
         leverages = [self.config.get("strategies", {}).get(s, {}).get("leverage", self.risk_config["max_leverage"])
                      for s in signal.strategy.split(",")]
         leverage = max(leverages)
+
+        # ── 检测是否为反转信号 ──
+        is_reverse = False
         for pos in self.account.positions:
             if pos.symbol == symbol and pos.side == PositionSide.SHORT:
+                is_reverse = True
                 logger.info(f"🔄 {symbol} 有空仓，先平仓再做多")
                 self.orders.close_position(symbol, reason=f"反转做多 [{signal.strategy}]",
                                            account=self.account, client=self.client)
                 break
-        qty = self.risk.calc_position_size(self.account, price, leverage)
+
+        # 反转信号：保证金加倍（100U），加大反转力度
+        margin = 100 if is_reverse else None
+        qty = self.risk.calc_position_size(self.account, price, leverage, margin_usdt=margin)
         qty = self.client.adjust_quantity(symbol, qty)
-        ok, reason = self.risk.can_open_position(self.account, symbol, PositionSide.LONG, qty, leverage, price)
+        ok, reason = self.risk.can_open_position(self.account, symbol, PositionSide.LONG, qty, leverage, price,
+                                                    margin_usdt=margin)
         if not ok:
             logger.warning(f"🚫 {symbol} 做多被风控拒绝: {reason}")
             # 已有持仓：静默过滤，不通知
@@ -643,15 +651,23 @@ class TradingEngine:
         leverages = [self.config.get("strategies", {}).get(s, {}).get("leverage", self.risk_config["max_leverage"])
                      for s in signal.strategy.split(",")]
         leverage = max(leverages)
+
+        # ── 检测是否为反转信号 ──
+        is_reverse = False
         for pos in self.account.positions:
             if pos.symbol == symbol and pos.side == PositionSide.LONG:
+                is_reverse = True
                 logger.info(f"🔄 {symbol} 有多仓，先平仓再做空")
                 self.orders.close_position(symbol, reason=f"反转做空 [{signal.strategy}]",
                                            account=self.account, client=self.client)
                 break
-        qty = self.risk.calc_position_size(self.account, price, leverage)
+
+        # 反转信号：保证金加倍（100U），加大反转力度
+        margin = 100 if is_reverse else None
+        qty = self.risk.calc_position_size(self.account, price, leverage, margin_usdt=margin)
         qty = self.client.adjust_quantity(symbol, qty)
-        ok, reason = self.risk.can_open_position(self.account, symbol, PositionSide.SHORT, qty, leverage, price)
+        ok, reason = self.risk.can_open_position(self.account, symbol, PositionSide.SHORT, qty, leverage, price,
+                                                    margin_usdt=margin)
         if not ok:
             logger.warning(f"🚫 {symbol} 做空被风控拒绝: {reason}")
             # 已有持仓：静默过滤，不通知

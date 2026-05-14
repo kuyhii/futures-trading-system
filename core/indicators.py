@@ -118,3 +118,125 @@ class Indicators:
         if total_v == 0:
             return None
         return total_vp / total_v
+
+    # ============================================================
+    # 新增指标
+    # ============================================================
+
+    @staticmethod
+    def adx(candles: List[dict], period: int = 14) -> Optional[dict]:
+        """ADX 趋势强度指标（Wilders 平滑）
+        返回 {"adx": float, "plus_di": float, "minus_di": float} 或 None
+        """
+        if len(candles) < period * 2 + 1:
+            return None
+        # Step 1: 计算 TR, +DM, -DM
+        trs, plus_dms, minus_dms = [], [], []
+        for i in range(1, len(candles)):
+            high = candles[i]["high"]
+            low = candles[i]["low"]
+            prev_close = candles[i - 1]["close"]
+            tr = max(high - low, abs(high - prev_close), abs(low - prev_close))
+            up_move = high - candles[i - 1]["high"]
+            down_move = candles[i - 1]["low"] - low
+            plus_dm = up_move if (up_move > down_move and up_move > 0) else 0
+            minus_dm = down_move if (down_move > up_move and down_move > 0) else 0
+            trs.append(tr)
+            plus_dms.append(plus_dm)
+            minus_dms.append(minus_dm)
+        # Step 2: Wilders 平滑（前 period 个值的和作为初始值）
+        atr = sum(trs[:period])
+        plus_dm_smooth = sum(plus_dms[:period])
+        minus_dm_smooth = sum(minus_dms[:period])
+        # Step 3: 遍历计算
+        dx_values = []
+        for i in range(period, len(trs)):
+            atr = atr - atr / period + trs[i]
+            plus_dm_smooth = plus_dm_smooth - plus_dm_smooth / period + plus_dms[i]
+            minus_dm_smooth = minus_dm_smooth - minus_dm_smooth / period + minus_dms[i]
+            if atr == 0:
+                dx_values.append(0)
+                continue
+            plus_di = (plus_dm_smooth / atr) * 100
+            minus_di = (minus_dm_smooth / atr) * 100
+            di_sum = plus_di + minus_di
+            if di_sum == 0:
+                dx_values.append(0)
+            else:
+                dx_values.append(abs(plus_di - minus_di) / di_sum * 100)
+        if len(dx_values) < period:
+            return None
+        adx = sum(dx_values[-period:]) / period
+        # 最后的 +DI / -DI
+        if atr == 0:
+            return {"adx": adx, "plus_di": 0, "minus_di": 0}
+        return {
+            "adx": round(adx, 2),
+            "plus_di": round((plus_dm_smooth / atr) * 100, 2),
+            "minus_di": round((minus_dm_smooth / atr) * 100, 2),
+        }
+
+    @staticmethod
+    def stochastic(candles: List[dict], k_period: int = 14, d_period: int = 3) -> Optional[dict]:
+        """KD 随机指标
+        返回 {"k": float, "d": float} 或 None
+        """
+        if len(candles) < k_period + d_period - 1:
+            return None
+        k_values = []
+        for i in range(k_period - 1, len(candles)):
+            window = candles[i - k_period + 1:i + 1]
+            highest = max(c["high"] for c in window)
+            lowest = min(c["low"] for c in window)
+            close = candles[i]["close"]
+            if highest == lowest:
+                k_values.append(50.0)
+            else:
+                k_values.append((close - lowest) / (highest - lowest) * 100)
+        if len(k_values) < d_period:
+            return None
+        d_val = sum(k_values[-d_period:]) / d_period
+        k_raw = k_values[-1]
+        # 钳制到 0-100 范围，防止极端数据越界
+        return {"k": round(max(0, min(100, k_raw)), 2), "d": round(max(0, min(100, d_val)), 2)}
+
+    @staticmethod
+    def obv(candles: List[dict]) -> Optional[List[float]]:
+        """能量潮 (On-Balance Volume)
+        返回 OBV 序列（长度 = len(candles) - 1）或 None
+        """
+        if len(candles) < 2:
+            return None
+        obv = [0.0]
+        for i in range(1, len(candles)):
+            if candles[i]["close"] > candles[i - 1]["close"]:
+                obv.append(obv[-1] + candles[i]["volume"])
+            elif candles[i]["close"] < candles[i - 1]["close"]:
+                obv.append(obv[-1] - candles[i]["volume"])
+            else:
+                obv.append(obv[-1])
+        return obv
+
+    @staticmethod
+    def ema_series_float(values: List[float], period: int) -> List[float]:
+        """对任意数值序列计算 EMA 序列（通用版）"""
+        if len(values) < period:
+            return []
+        mult = 2 / (period + 1)
+        ema = sum(values[:period]) / period
+        result = [ema]
+        for v in values[period:]:
+            ema = (v - ema) * mult + ema
+            result.append(ema)
+        return result
+
+    @staticmethod
+    def ema_val(closes: List[float], period: int) -> Optional[float]:
+        """EMA 最新值"""
+        if len(closes) < period:
+            return None
+        mult = 2 / (period + 1)
+        ema = sum(closes[:period]) / period
+        for p in closes[period:]:
+            ema = (p - ema) * mult + ema
+        return ema

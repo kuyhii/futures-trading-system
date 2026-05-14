@@ -71,6 +71,11 @@ STABLECOINS = {
     "UST", "USTC", "FRAX", "LUSD", "MIM", "FEI",
 }
 
+# 手动排除品种（永不加入品种池）
+EXCLUDE_SYMBOLS = {
+    "BNB",  # 用户手动排除
+}
+
 # API URLs
 API_URLS = {
     "testnet": "https://testnet.binancefuture.com",
@@ -86,7 +91,7 @@ MAX_SYMBOLS = 30   # 品种池上限（确保60秒内可完成全量分析）
 
 def is_stablecoin(base: str) -> bool:
     """判断一个基础币种是否为稳定币"""
-    return base.upper() in STABLECOINS
+    return base.upper() in STABLECOINS or base.upper() == "BNB"
 
 
 def load_api_keys() -> dict:
