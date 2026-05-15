@@ -1,8 +1,6 @@
 {
   "max_leverage": 20,
   "position_margin_pct": 4,
-  "atr_risk_pct": 1,
-  "atr_period": 14,
   "stop_loss_pct": 1.5,
   "take_profit_pct": 3,
   "max_positions": 50,

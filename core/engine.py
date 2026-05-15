@@ -63,7 +63,6 @@ from core.binance_client import BinanceClient
 from core.models import SignalAction, PositionSide, TradeSignal, Position, AccountState
 from core.strategy_engine import StrategyEngine
 from core.risk_engine import RiskEngine
-from core.indicators import Indicators
 from core.order_manager import OrderManager
 from core.loop_prevention import LoopPrevention
 
@@ -594,11 +593,8 @@ class TradingEngine:
                                            account=self.account, client=self.client)
                 break
 
-        # 仓位计算：海龟 ATR 仓位管理（高波动自动减仓，低波动正常开仓）
-        atr_period = self.risk.cfg.get("atr_period", 14)
-        candles = self.fetch_klines(symbol, self.config['timeframe'])
-        atr_val = Indicators.atr(candles, atr_period) if candles else None
-        qty = self.risk.calc_position_size(self.account, price, leverage, atr=atr_val)
+        # 开仓保证金统一使用账户总金额的 4%（由 risk.json position_margin_pct 控制）
+        qty = self.risk.calc_position_size(self.account, price, leverage)
         qty = self.client.adjust_quantity(symbol, qty)
         ok, reason = self.risk.can_open_position(self.account, symbol, PositionSide.LONG, qty, leverage, price)
         if not ok:
@@ -643,11 +639,8 @@ class TradingEngine:
                                            account=self.account, client=self.client)
                 break
 
-        # 仓位计算：海龟 ATR 仓位管理
-        atr_period = self.risk.cfg.get("atr_period", 14)
-        candles = self.fetch_klines(symbol, self.config['timeframe'])
-        atr_val = Indicators.atr(candles, atr_period) if candles else None
-        qty = self.risk.calc_position_size(self.account, price, leverage, atr=atr_val)
+        # 开仓保证金统一使用账户总金额的 4%（由 risk.json position_margin_pct 控制）
+        qty = self.risk.calc_position_size(self.account, price, leverage)
         qty = self.client.adjust_quantity(symbol, qty)
         ok, reason = self.risk.can_open_position(self.account, symbol, PositionSide.SHORT, qty, leverage, price)
         if not ok:

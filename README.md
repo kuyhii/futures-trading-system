@@ -122,6 +122,13 @@ python3 scripts/update_symbols_pool.py   # 手动筛选
 
 ## 📈 更新日志
 
+### V4.2（2026-05-15）— 策略回滚：恢复 V3 原始突破策略
+- 🔄 **回滚 ea-python 策略集成**：移除 CCI、EMV、Dual Thrust 通道、ATR 海龟仓位
+- 📉 **突破策略恢复**：简单 N 周期高低点突破 + ADX 趋势过滤 + OBV 量能确认
+- 💰 **仓位计算恢复**：账户总金额的 4%（不再使用 ATR 海龟仓位）
+- 🧹 **删除指标**：`cci()`, `emv()`, `dual_thrust_range()`
+- 📋 **配置清理**：移除 `cci_period`, `emv_period`, `dual_thrust_k1/k2`, `atr_risk_pct`
+
 ### V4.1（2026-05-15）— positionSide 双向持仓修复 + 通知推送修复
 - 🐛 **positionSide 缺失**: 币安合约要求 `positionSide` 参数（双向持仓模式），开仓/平仓时补充 `LONG/SHORT` 字段
 - 🐛 **通知推送 KeyError**: `order_manager.py` 中 `result` 字典缺少 `fill_price` 字段，导致 Telegram 通知发送失败

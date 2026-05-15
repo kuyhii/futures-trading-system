@@ -1,13 +1,6 @@
 {
-  "active": [
-    "trend_follow",
-    "mean_reversion",
-    "breakout"
-  ],
-  "symbols": [
-    "BTCUSDT",
-    "ETHUSDT"
-  ],
+  "active": ["trend_follow", "mean_reversion", "breakout"],
+  "symbols": ["BTCUSDT", "ETHUSDT"],
   "timeframe": "2m",
   "indicators": {
     "ma_fast": 9,
@@ -20,9 +13,7 @@
     "macd_fast": 12,
     "macd_slow": 26,
     "macd_signal": 9,
-    "atr_period": 14,
-    "cci_period": 14,
-    "emv_period": 14
+    "atr_period": 14
   },
   "signal_aggregation": {
     "method": "weighted_vote",
@@ -35,7 +26,7 @@
       "enabled": true,
       "weight": 1.0,
       "priority": 1,
-      "description": "MA \u91d1\u53c9/\u6b7b\u53c9 + MACD \u786e\u8ba4 + \u6210\u4ea4\u91cf",
+      "description": "MA 金叉/死叉 + MACD 确认 + 成交量",
       "timeframe": "2m",
       "leverage": 20,
       "min_confidence": 0.6
@@ -44,7 +35,7 @@
       "enabled": true,
       "weight": 0.8,
       "priority": 2,
-      "description": "RSI \u8d85\u4e70\u8d85\u5356 + \u5e03\u6797\u5e26",
+      "description": "RSI 超买超卖 + 布林带",
       "timeframe": "2m",
       "leverage": 20,
       "min_confidence": 0.7
@@ -53,13 +44,11 @@
       "enabled": true,
       "weight": 0.9,
       "priority": 3,
-      "description": "Dual Thrust \u901a\u9053\u7a81\u7834 + CCI \u8d8b\u52bf\u786e\u8ba4 + EMV \u91cf\u4ef7\u786e\u8ba4",
+      "description": "突破 N 周期高低点 + 成交量确认",
       "lookback_periods": 20,
-      "dual_thrust_k1": 0.5,
-      "dual_thrust_k2": 0.5,
       "timeframe": "2m",
       "leverage": 20,
-      "min_confidence": 0.58
+      "min_confidence": 0.56
     }
   }
 }
