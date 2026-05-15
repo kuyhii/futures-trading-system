@@ -211,13 +211,22 @@ class OrderManager:
             "strategy": strategy, "result": result,
         }
         try:
+            import fcntl
+            # 先读
             if os.path.exists(history_file):
-                with open(history_file) as f:
+                with open(history_file, "r") as f:
+                    fcntl.flock(f, fcntl.LOCK_SH)
                     data = json.load(f)
+                    fcntl.flock(f, fcntl.LOCK_UN)
             else:
                 data = {"trades": []}
             data["trades"].append(entry)
+            # 写 + 排他锁 + fsync 确保落盘
             with open(history_file, "w") as f:
+                fcntl.flock(f, fcntl.LOCK_EX)
                 json.dump(data, f, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
+                fcntl.flock(f, fcntl.LOCK_UN)
         except Exception as e:
             logger.error(f"记录交易失败: {e}")
