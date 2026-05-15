@@ -68,31 +68,19 @@ from core.order_manager import OrderManager
 from core.loop_prevention import LoopPrevention
 
 # ── 环境配置 ──
-BINANCE_API_ENV = os.environ.get("BINANCE_API_ENV", "prod")
+# 固定使用币安实盘 API，本地模拟交易（不下真实订单）
+BINANCE_API_ENV = "prod"
+BINANCE_API_KEY = os.environ.get("BINANCE_PROD_API_KEY", "")
+BINANCE_SECRET_KEY = os.environ.get("BINANCE_PROD_SECRET_KEY", "")
 
-if BINANCE_API_ENV == "prod":
-    BINANCE_API_KEY = os.environ.get("BINANCE_PROD_API_KEY", "")
-    BINANCE_SECRET_KEY = os.environ.get("BINANCE_PROD_SECRET_KEY", "")
-else:
-    BINANCE_API_KEY = os.environ.get("BINANCE_TESTNET_API_KEY", "")
-    BINANCE_SECRET_KEY = os.environ.get("BINANCE_TESTNET_SECRET_KEY", "")
-
-BASE_URLS = {
-    "prod":    "https://fapi.binance.com",
-    "testnet": "https://testnet.binancefuture.com",
-}
-BASE_URL = BASE_URLS.get(BINANCE_API_ENV, BASE_URLS["prod"])
-STREAM_URL = "fstream.binance.com" if BINANCE_API_ENV == "prod" else "stream.binancefuture.com"
+BASE_URL = "https://fapi.binance.com"
+STREAM_URL = "fstream.binance.com"
 
 # 本地模拟交易模式：使用实盘数据，下单在本地模拟
 DRY_RUN = True
 INITIAL_CAPITAL = 500  # 初始资金 500 USDT
 
-MODE_LABELS = {
-    "prod": f"实盘数据+本地模拟交易（{INITIAL_CAPITAL}U）",
-    "testnet": "测试网模式（模拟实盘）",
-}
-MODE_LABEL = MODE_LABELS.get(BINANCE_API_ENV, MODE_LABELS["prod"])
+MODE_LABEL = f"实盘数据+本地模拟交易（{INITIAL_CAPITAL}U）"
 IS_AUTHENTICATED = bool(BINANCE_API_KEY and BINANCE_SECRET_KEY)
 
 # ── 日志 ──
@@ -929,7 +917,7 @@ class TradingEngine:
 def main():
     import argparse
     parser = argparse.ArgumentParser(description="量化交易引擎 V3.1")
-    parser.add_argument("--env", choices=["testnet", "prod"], help="临时切换环境")
+    parser.add_argument("--env", choices=["prod"], default="prod", help="固定实盘环境")
     parser.add_argument("--full-init", action="store_true", default=True, help="全量初始化（更新品种池+补齐K线+合成）")
     parser.add_argument("--quick-start", action="store_true", help="快速启动（用本地缓存）")
     parser.add_argument("--status", action="store_true", help="查看状态后退出")

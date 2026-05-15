@@ -38,12 +38,9 @@ def load_env():
 
 load_env()
 
-# 环境标识确认
-BINANCE_API_ENV = os.environ.get("BINANCE_API_ENV", "testnet")
-if BINANCE_API_ENV == "prod":
-    BINANCE_API_KEY = os.environ.get("BINANCE_PROD_API_KEY", "")
-else:
-    BINANCE_API_KEY = os.environ.get("BINANCE_TESTNET_API_KEY", "")
+# 环境标识确认（固定实盘）
+BINANCE_API_ENV = "prod"
+BINANCE_API_KEY = os.environ.get("BINANCE_PROD_API_KEY", "")
 
 def log(msg):
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
