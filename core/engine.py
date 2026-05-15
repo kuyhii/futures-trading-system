@@ -68,7 +68,7 @@ from core.order_manager import OrderManager
 from core.loop_prevention import LoopPrevention
 
 # ── 环境配置 ──
-# 固定使用币安实盘 API，本地模拟交易（不下真实订单）
+# 固定使用币安实盘 API，真实盘交易
 BINANCE_API_ENV = "prod"
 BINANCE_API_KEY = os.environ.get("BINANCE_PROD_API_KEY", "")
 BINANCE_SECRET_KEY = os.environ.get("BINANCE_PROD_SECRET_KEY", "")
@@ -76,11 +76,8 @@ BINANCE_SECRET_KEY = os.environ.get("BINANCE_PROD_SECRET_KEY", "")
 BASE_URL = "https://fapi.binance.com"
 STREAM_URL = "fstream.binance.com"
 
-# 本地模拟交易模式：使用实盘数据，下单在本地模拟
-DRY_RUN = True
-INITIAL_CAPITAL = 500  # 初始资金 500 USDT
-
-MODE_LABEL = f"实盘数据+本地模拟交易（{INITIAL_CAPITAL}U）"
+# 真实盘交易
+MODE_LABEL = "实盘真实交易"
 IS_AUTHENTICATED = bool(BINANCE_API_KEY and BINANCE_SECRET_KEY)
 
 # ── 日志 ──
@@ -106,13 +103,10 @@ class TradingEngine:
 
         self.strategy = StrategyEngine(self.config)
         self.risk = RiskEngine(self.risk_config)
-        self.orders = OrderManager(self.client, self.risk, dry_run=DRY_RUN, initial_capital=INITIAL_CAPITAL)
+        self.orders = OrderManager(self.client, self.risk)
 
-        # 模拟交易：本地账户，初始资金由 DRY_RUN 控制
+        # 真实账户：启动时从 Binance API 获取余额
         self.account = AccountState()
-        if DRY_RUN:
-            self.account.total_equity = INITIAL_CAPITAL
-            self.account.available_balance = INITIAL_CAPITAL
         self.running = False
         self.cycle_count = 0
         self.last_cycle_time = 0
@@ -415,11 +409,7 @@ class TradingEngine:
         return summary
 
     def refresh_account(self):
-        if not IS_AUTHENTICATED:
-            self.account.total_equity = 10000
-            self.account.available_balance = 10000
-            self.account.positions = []
-            return
+        """从币安 API 获取真实账户余额和持仓"""
         try:
             acc_info = self.client.account_info()
             if isinstance(acc_info, dict) and "error" in acc_info:
@@ -467,13 +457,6 @@ class TradingEngine:
             logger.error(f"刷新账户状态失败: {e}")
             self._account_stale = True  # 数据已过期
 
-    def _calc_dry_run_pnl(self, pos: Position) -> float:
-        if pos.entry_price == 0 or pos.mark_price == 0:
-            return 0
-        direction = 1 if pos.side == PositionSide.LONG else -1
-        pnl_pct = (pos.mark_price - pos.entry_price) / pos.entry_price * 100 * direction
-        nominal = pos.entry_price * pos.quantity
-        return round(nominal * pnl_pct / 100, 4)
 
     def fetch_klines(self, symbol: str, timeframe: str = None) -> List[dict]:
         tf = timeframe or self.config["timeframe"]
@@ -848,7 +831,7 @@ class TradingEngine:
         if BINANCE_API_ENV == "prod":
             logger.warning("🚨 实盘模式！")
         else:
-            logger.info("📌 测试网模式：虚拟资金模拟交易")
+            logger.info("📌 实盘真实交易模式，自动获取账户余额")
 
         def stop_handler(signum, frame):
             logger.info("收到停止信号，正在安全退出...")
