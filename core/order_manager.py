@@ -102,11 +102,20 @@ class OrderManager:
         try:
             positions = self.client.positions(symbol)
             if not positions:
+                # 仓位已不存在 — 可能是 Algo Order 自动平仓（止损/止盈）
+                # 查询最近成交记录补发通知
+                if reason:
+                    logger.info(f"⚠️ {symbol} 仓位已不存在，可能是 Algo Order 自动平仓: {reason}")
+                    self._notify_already_closed(symbol, reason)
                 result["status"] = "no_position"
                 return result
             pos = positions[0]
             pos_amt = float(pos["positionAmt"])
             if pos_amt == 0:
+                # 同上，仓位量为 0
+                if reason:
+                    logger.info(f"⚠️ {symbol} 仓位量为 0，可能是 Algo Order 自动平仓: {reason}")
+                    self._notify_already_closed(symbol, reason)
                 result["status"] = "no_position"
                 return result
             close_side = "SELL" if pos_amt > 0 else "BUY"
@@ -143,6 +152,50 @@ class OrderManager:
             result["error"] = str(e)
             logger.error(f"❌ 平仓异常: {e}")
             return result
+
+    def _notify_already_closed(self, symbol: str, reason: str):
+        """仓位已被 Algo Order 自动平仓，查询最近成交记录补发通知和记录"""
+        try:
+            trades = self.client.my_trades(symbol, limit=5)
+            if not isinstance(trades, list) or not trades:
+                logger.warning(f"⚠️ 无法查询 {symbol} 成交记录，跳过通知")
+                return
+            # 找最近的一笔平仓成交（realizedPnl != 0 或与开仓方向相反）
+            for t in reversed(trades):
+                pnl = float(t.get("realizedPnl", 0))
+                if pnl != 0 or t.get("side") in ("SELL", "BUY"):
+                    qty = float(t["qty"])
+                    price = float(t["price"])
+                    side = "long" if t["side"] == "BUY" else "short"
+                    # 估算入场价（从 trade_history.json 找最近的开仓记录）
+                    entry_price = self._find_last_open_price(symbol)
+                    if entry_price <= 0:
+                        entry_price = price  # fallback
+                    direction = 1 if side == "long" else -1
+                    pnl_pct_val = (price - entry_price) / entry_price * 100 * direction
+                    logger.info(f"📢 {symbol} 已自动平仓: {qty} @ {price}, 原因: {reason}")
+                    notifier.trade_closed(symbol, side, qty, entry_price, price,
+                                         pnl, pnl_pct_val, reason, dry_run=False)
+                    self._record_trade("close", symbol, side, qty,
+                                      price, reason, f"auto_close pnl={pnl:.2f}")
+                    return
+            logger.warning(f"⚠️ {symbol} 未找到平仓成交记录")
+        except Exception as e:
+            logger.error(f"⚠️ 补发 {symbol} 平仓通知失败: {e}")
+
+    def _find_last_open_price(self, symbol: str) -> float:
+        """从 trade_history.json 查找该币种最近的开仓价"""
+        history_file = os.path.join(STATE_DIR, "trade_history.json")
+        try:
+            if os.path.exists(history_file):
+                with open(history_file) as f:
+                    data = json.load(f)
+                for t in reversed(data.get("trades", [])):
+                    if t.get("symbol") == symbol and t.get("action") == "open":
+                        return float(t.get("price", 0))
+        except Exception:
+            pass
+        return 0
 
     def _place_sl_tp(self, symbol: str, side: PositionSide,
                      sl_price: float, tp_price: float):
