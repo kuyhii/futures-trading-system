@@ -122,6 +122,12 @@ python3 scripts/update_symbols_pool.py   # 手动筛选
 
 ## 📈 更新日志
 
+### V4.3（2026-05-15）— 止损止盈 API 修复 + 杠杆优雅降级
+- 🔴 **止损止盈 API 错误** — `STOP_MARKET/TAKE_PROFIT_MARKET` 必须走 `/fapi/v1/algoOrder`（不是 `/fapi/v1/order`），参数名 `triggerprice`（小写）
+- 🔴 **杠杆无效 -4028** — 部分品种（如 SKYAIUSDT）不支持 20x，新增 `_set_leverage_safe()` 自动降级 20x→10x→5x
+- 🟡 **通知 dry_run** — 开仓通知补上 `dry_run=False`，实盘显示 🟢 实盘 而非 🔵 模拟
+- 🟡 **closePosition 格式** — Algo Order API 要求 `closePosition="true"`（字符串）
+
 ### V4.2（2026-05-15）— 策略回滚：恢复 V3 原始突破策略
 - 🔄 **回滚 ea-python 策略集成**：移除 CCI、EMV、Dual Thrust 通道、ATR 海龟仓位
 - 📉 **突破策略恢复**：简单 N 周期高低点突破 + ADX 趋势过滤 + OBV 量能确认
