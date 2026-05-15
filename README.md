@@ -1,8 +1,8 @@
-# 📈 自动量化合约交易系统 V4
+# 📈 自动量化合约交易系统 V4.1
 
 > 基于币安 U 本位合约的模块化量化交易框架，由 OpenClaw Agent 驱动。
-> **版本: V4 — ea-python 精华集成 | ATR 海龟仓位 | Dual Thrust + CCI + EMV 突破增强**
-> **运行状态: 测试网运行中 | 总权益 ≈ 4,983 USDT | 累计交易 73+ 条**
+> **版本: V4.1 — positionSide 双向持仓修复 + 通知推送修复**
+> **运行状态: 实盘运行中 | 总权益 ≈ 59.49 USDT | 严格共识: ≥ 2 策略一致才开仓**
 
 ## ✨ 核心功能
 
@@ -55,7 +55,7 @@ futures-trading-system/
 | 风控巡检 | 15秒独立线程 |
 | 信号置信度 | ≥0.7（最低阈值） |
 | 品种池上限 | 35 个（按成交额排序） |
-| 交易模式 | 测试网（testnet） |
+| 交易模式 | 实盘（prod） |
 
 ## 🧠 策略说明
 
@@ -121,6 +121,12 @@ python3 scripts/update_symbols_pool.py   # 手动筛选
 6. **推送安全**: `.env`, `secrets/`, `data/`, `state/`, `logs/`, `config/symbols.json` 绝不提交
 
 ## 📈 更新日志
+
+### V4.1（2026-05-15）— positionSide 双向持仓修复 + 通知推送修复
+- 🐛 **positionSide 缺失**: 币安合约要求 `positionSide` 参数（双向持仓模式），开仓/平仓时补充 `LONG/SHORT` 字段
+- 🐛 **通知推送 KeyError**: `order_manager.py` 中 `result` 字典缺少 `fill_price` 字段，导致 Telegram 通知发送失败
+- ⚡ **止损止盈 positionSide**: `_place_sl_tp` 中 `pos_side` 从固定 `BOTH` 改为动态 `LONG/SHORT`
+- 🧪 修复后重启实盘，通知推送正常工作
 
 ### V4（2026-05-14）— ea-python 精华策略集成
 > 来源: [zhy0313/ea-python](https://github.com/zhy0313/ea-python) 精华提取，适配 2m 超短线

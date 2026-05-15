@@ -168,10 +168,12 @@ class BinanceClient:
                   quantity: float = None, price: float = None,
                   stop_price: float = None, reduce_only: bool = False,
                   close_position: bool = False, time_in_force: str = "GTC",
-                  callback_rate: float = None) -> dict:
+                  callback_rate: float = None, position_side: str = None) -> dict:
         params = {
             "symbol": symbol, "side": side, "type": order_type,
         }
+        if position_side:
+            params["positionSide"] = position_side
         if quantity: params["quantity"] = quantity
         if price: params["price"] = price
         if stop_price: params["stopPrice"] = stop_price

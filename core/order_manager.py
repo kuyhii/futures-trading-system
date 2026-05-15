@@ -35,7 +35,8 @@ class OrderManager:
             self.client.change_leverage(symbol, leverage)
             time.sleep(0.5)
             binance_side = "BUY" if side == PositionSide.LONG else "SELL"
-            order = self.client.new_order(symbol, binance_side, "MARKET", quantity=quantity)
+            pos_side = "LONG" if side == PositionSide.LONG else "SHORT"
+            order = self.client.new_order(symbol, binance_side, "MARKET", quantity=quantity, position_side=pos_side)
             if "error" in order:
                 result["status"] = "failed"
                 result["error"] = order["error"]
@@ -60,9 +61,10 @@ class OrderManager:
                 api_price = price
                 logger.warning(f"⚠️ API未返回成交价，使用信号价格 {_fmt_price(price)}")
             fill_price = api_price
+            result["fill_price"] = fill_price
             result["executed_qty"] = float(order.get("executedQty", quantity))
 
-            logger.info(f"✅ 开仓成功: {side.value.upper()} {symbol} {result["executed_qty"]} @ {_fmt_price(fill_price)}")
+            logger.info(f"✅ 开仓成功: {side.value.upper()} {symbol} {result['executed_qty']} @ {_fmt_price(fill_price)}")
 
             # 验证止损止盈价格有效性
             sl = self.risk.calc_stop_loss(api_price, side)
@@ -108,10 +110,12 @@ class OrderManager:
                 result["status"] = "no_position"
                 return result
             close_side = "SELL" if pos_amt > 0 else "BUY"
+            pos_side = "LONG" if pos_amt > 0 else "SHORT"
             qty = abs(pos_amt)
             qty = self.client.adjust_quantity(symbol, qty)
             order = self.client.new_order(symbol, close_side, "MARKET",
-                                          quantity=qty, reduce_only=True)
+                                          quantity=qty, reduce_only=True,
+                                          position_side=pos_side)
             if "error" in order:
                 result["status"] = "failed"
                 result["error"] = order["error"]
@@ -144,9 +148,9 @@ class OrderManager:
                      sl_price: float, tp_price: float):
         try:
             close_side = "SELL" if side == PositionSide.LONG else "BUY"
+            pos_side = "LONG" if side == PositionSide.LONG else "SHORT"  # 双向持仓模式
             sl_price = self.client.adjust_price(symbol, sl_price)
             tp_price = self.client.adjust_price(symbol, tp_price)
-            pos_side = "BOTH"  # 双向持仓模式
 
             # ── 测试网 Algo Order API 格式 ──
             # algotype=CONDITIONAL, type=STOP_MARKET/TAKE_PROFIT_MARKET, triggerprice(小写!)
