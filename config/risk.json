@@ -1,7 +1,7 @@
 {
   "max_leverage": 20,
   "position_margin_pct": 4,
-  "stop_loss_pct": 1.5,
+  "stop_loss_pct": 2.5,
   "take_profit_pct": 3,
   "max_positions": 50,
   "daily_loss_limit_pct": 5,
@@ -14,35 +14,35 @@
   "risk_rules": {
     "position_margin_pct": {
       "enabled": true,
-      "description": "开仓保证金为账户总金额的 4%"
+      "description": "\u5f00\u4ed3\u4fdd\u8bc1\u91d1\u4e3a\u8d26\u6237\u603b\u91d1\u989d\u7684 4%"
     },
     "single_stop_loss": {
       "enabled": true,
-      "description": "单笔亏损不超过保证金 1.5%"
+      "description": "\u5355\u7b14\u4e8f\u635f\u4e0d\u8d85\u8fc7\u4fdd\u8bc1\u91d1 1.5%"
     },
     "single_take_profit": {
       "enabled": true,
-      "description": "单笔止盈 +3%，盈亏比 1:2"
+      "description": "\u5355\u7b14\u6b62\u76c8 +3%\uff0c\u76c8\u4e8f\u6bd4 1:2"
     },
     "max_positions": {
       "enabled": true,
-      "description": "同时最多持仓 50 个合约"
+      "description": "\u540c\u65f6\u6700\u591a\u6301\u4ed3 50 \u4e2a\u5408\u7ea6"
     },
     "daily_loss_limit": {
       "enabled": true,
-      "description": "当日亏损达 5% 停止交易"
+      "description": "\u5f53\u65e5\u4e8f\u635f\u8fbe 5% \u505c\u6b62\u4ea4\u6613"
     },
     "max_drawdown": {
       "enabled": true,
-      "description": "总资金回撤 15% 清仓暂停"
+      "description": "\u603b\u8d44\u91d1\u56de\u64a4 15% \u6e05\u4ed3\u6682\u505c"
     },
     "emergency_close": {
       "enabled": true,
-      "description": "触发止损自动平仓"
+      "description": "\u89e6\u53d1\u6b62\u635f\u81ea\u52a8\u5e73\u4ed3"
     },
     "signal_conflict_resolution": {
       "enabled": true,
-      "description": "多策略信号冲突时按加权分决断"
+      "description": "\u591a\u7b56\u7565\u4fe1\u53f7\u51b2\u7a81\u65f6\u6309\u52a0\u6743\u5206\u51b3\u65ad"
     }
   }
 }
