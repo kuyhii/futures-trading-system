@@ -32,7 +32,7 @@ class OrderManager:
                   "leverage": leverage, "status": "pending"}
 
         try:
-            self.client.change_leverage(symbol, leverage)
+            self._set_leverage_safe(symbol, leverage)
             time.sleep(0.5)
             binance_side = "BUY" if side == PositionSide.LONG else "SELL"
             pos_side = "LONG" if side == PositionSide.LONG else "SHORT"
@@ -80,7 +80,7 @@ class OrderManager:
 
             try:
                 notifier.trade_opened(symbol, side.value, quantity, result['fill_price'],
-                                     leverage, strategy, sl, tp)
+                                     leverage, strategy, sl, tp, dry_run=False)
             except Exception as e:
                 logger.warning(f"通知发送失败: {e}")
 
@@ -154,12 +154,12 @@ class OrderManager:
 
             # ── 测试网 Algo Order API 格式 ──
             # algotype=CONDITIONAL, type=STOP_MARKET/TAKE_PROFIT_MARKET, triggerprice(小写!)
-            # 生产环境用 /fapi/v1/order + STOP_MARKET 即可
+            # 生产环境用 Algo Order API
             sl_params = {
+                "algotype": "CONDITIONAL",
                 "symbol": symbol,
                 "side": close_side,
                 "positionSide": pos_side,
-                "algotype": "CONDITIONAL",
                 "type": "STOP_MARKET",
                 "triggerprice": sl_price,
                 "closePosition": "true",
@@ -172,10 +172,10 @@ class OrderManager:
                 logger.info(f"🛡 止损已设置: {_fmt_price(sl_price)}")
 
             tp_params = {
+                "algotype": "CONDITIONAL",
                 "symbol": symbol,
                 "side": close_side,
                 "positionSide": pos_side,
-                "algotype": "CONDITIONAL",
                 "type": "TAKE_PROFIT_MARKET",
                 "triggerprice": tp_price,
                 "closePosition": "true",
@@ -188,6 +188,18 @@ class OrderManager:
                 logger.info(f"🎯 止盈已设置: {_fmt_price(tp_price)}")
         except Exception as e:
             logger.error(f"设置止损止盈异常: {e}")
+
+
+    def _set_leverage_safe(self, symbol: str, target_leverage: int):
+        """安全设置杠杆：尝试目标值，失败后逐级降级"""
+        for lev in [target_leverage, 10, 5]:
+            result = self.client.change_leverage(symbol, lev)
+            if "error" not in result:
+                logger.info(f"✅ {symbol} 杠杆已设为 {lev}x")
+                return lev
+            logger.warning(f"⚠️ {symbol} 杠杆 {lev}x 失败: {result.get('error', '')}")
+        logger.error(f"❌ {symbol} 所有杠杆级别均失败")
+        return target_leverage
 
     def _record_trade(self, action: str, symbol: str, side: str,
                       quantity: float, price: float, strategy: str, result: str):
