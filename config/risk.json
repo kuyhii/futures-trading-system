@@ -1,14 +1,14 @@
 {
-  "max_leverage": 20,
+  "max_leverage": 10,
   "position_margin_pct": 4,
   "stop_loss_pct": 2.5,
-  "take_profit_pct": 3,
-  "max_positions": 50,
+  "take_profit_pct": 4,
+  "max_positions": 10,
   "daily_loss_limit_pct": 5,
   "max_drawdown_pct": 15,
   "trailing_stop": true,
   "trailing_distance_pct": 1,
-  "min_signal_confidence": 0.7,
+  "min_signal_confidence": 0.75,
   "signal_cooldown_seconds": 300,
   "multi_strategy_bonus": 0.15,
   "risk_rules": {
